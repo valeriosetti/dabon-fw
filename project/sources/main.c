@@ -1,6 +1,8 @@
 #include "stm32f407xx.h"
 #include "clock_configuration.h"
 #include "i2c.h"
+#include "uart.h"
+#include "debug_printf.h"
 
 
 /*
@@ -11,32 +13,26 @@ int main(void)
 	// Configure the main clock
 	ClockConfig_SetMainClockAndPrescalers();
 
-	// Test SGTL5000
+	// Initialize peripherals
 	i2c_init();
-//	#define SGTL5000_I2C_ADDRESS 		0x0A
-//	uint8_t reg_addr[2] = {0x00, 0x00};
-//	uint8_t rx_data;
-//	i2c_write_buffer(SGTL5000_I2C_ADDRESS, reg_addr, 2);
-//	i2c_read_buffer(SGTL5000_I2C_ADDRESS, &rx_data, 2);
+	uart_init();
 
-	uint8_t tmp_addr;
-	for (tmp_addr=0; tmp_addr<128; tmp_addr++) {
-		if (i2c_scan_address(tmp_addr) != I2C_ERROR)
-			while(1);
-	}
+//	uint8_t tmp_addr;
+//	for (tmp_addr=0x0A; tmp_addr<0x80; tmp_addr++) {
+//		if (i2c_scan_address(tmp_addr) != I2C_ERROR)
+//			while(1);
+//	}
 
-	// Enable the interrupt from SysTick
-	//HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
+	#define STC3115_I2C_ADDRESS 		0x70
+	uint8_t reg_addr = 24;
+	uint8_t rx_data = 0x00;
 
-	// Configure the SysTick
-	//	- the counter is reset every 1ms
-	//	- interrupt generation is enabled
-	//	- the counter is enabled
-	//SysTick_Config(168000);
-	//NVIC_EnableIRQ(SysTick_IRQn);
+	uint8_t tmp;
 
 	while (1)
 	{
-	
+//		if (i2c_write_buffer(STC3115_I2C_ADDRESS, &reg_addr, 1) == I2C_SUCCESS)
+//			i2c_read_buffer(STC3115_I2C_ADDRESS, &rx_data, 1);
+		debug_printf("tmp=%d\n", tmp++);
 	}
 }

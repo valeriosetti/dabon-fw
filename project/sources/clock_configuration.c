@@ -35,9 +35,9 @@ int ClockConfig_SetMainClockAndPrescalers()
 
 	// Configure peripherals' dividers
 	tmp = RCC->CFGR;
-	tmp = (tmp & ~RCC_CFGR_PPRE2) | RCC_CFGR_PPRE2_DIV2;  // APB2 clock = 84MHz
-	tmp = (tmp & ~RCC_CFGR_PPRE1) | RCC_CFGR_PPRE1_DIV4;  // APB1 clock = 42MHz
-	tmp = (tmp & ~RCC_CFGR_PPRE1) | RCC_CFGR_HPRE_DIV1;  // AHB clock = 168MHz (SysTick will be clocked at 21MHz)
+	tmp = (tmp & ~RCC_CFGR_PPRE2_Msk) | RCC_CFGR_PPRE2_DIV2;  // APB2 clock = 84MHz
+	tmp = (tmp & ~RCC_CFGR_PPRE1_Msk) | RCC_CFGR_PPRE1_DIV4;  // APB1 clock = 42MHz
+	tmp = (tmp & ~RCC_CFGR_HPRE_Msk) | RCC_CFGR_HPRE_DIV1;  // AHB clock = 168MHz (SysTick will be clocked at 21MHz)
 	RCC->CFGR = tmp;
 
 	// Configure the Flash latency to 5 wait states (see Table 7 in the Reference Manual)
