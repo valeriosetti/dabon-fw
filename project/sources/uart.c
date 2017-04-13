@@ -1,6 +1,7 @@
 #include "uart.h"
 #include "stm32f407xx.h"
 #include "clock_configuration.h"
+#include "gpio.h"
 
 /*
  * Configuration macros
@@ -27,8 +28,9 @@ int uart_init()
 	// Enable the GPIOB's peripheral clock
 	RCC_GPIOA_CLK_ENABLE();
 	// Configure PA2 and PA3 for UART alternate function (AF7)
-	GPIOA->MODER |= ((2UL << GPIO_MODER_MODE2_Pos) | (2UL << GPIO_MODER_MODE3_Pos));
+	GPIOA->MODER |= ((MODER_ALTERNATE << GPIO_MODER_MODE2_Pos) | (MODER_ALTERNATE << GPIO_MODER_MODE3_Pos));
 	GPIOA->AFR[0] |= ((7UL << GPIO_AFRL_AFSEL2_Pos) | (7UL << GPIO_AFRL_AFSEL3_Pos));
+	GPIOA->OSPEEDR |= ((OSPEEDR_25MHZ << GPIO_OSPEEDR_OSPEED2_Pos) | (OSPEEDR_25MHZ << GPIO_OSPEEDR_OSPEED3_Pos));
 
 	// Enable UART2's clock
 	RCC_USART2_CLK_ENABLE();

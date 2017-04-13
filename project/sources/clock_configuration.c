@@ -24,8 +24,8 @@ int ClockConfig_SetMainClockAndPrescalers()
 	tmp = RCC->PLLCFGR;
 	tmp = (tmp & ~RCC_PLLCFGR_PLLQ) | (7UL << 24);  // Q=7
 	tmp = (tmp & ~RCC_PLLCFGR_PLLP) | (0UL << 16);  // P=2
-	tmp = (tmp & ~RCC_PLLCFGR_PLLN) | (168UL << 6);  // N=168
-	tmp = (tmp & ~RCC_PLLCFGR_PLLM) | (4UL << 0); // M=4
+	tmp = (tmp & ~RCC_PLLCFGR_PLLN) | (336UL << 6);  // N=168
+	tmp = (tmp & ~RCC_PLLCFGR_PLLM) | (HSE_MAIN_DIV << 0); // M=4
 	tmp |= RCC_PLLCFGR_PLLSRC;  // HSE is PLL's source
 	RCC->PLLCFGR = tmp;
 
@@ -51,3 +51,4 @@ int ClockConfig_SetMainClockAndPrescalers()
 	RCC->CFGR = tmp;
 	while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
 }
+

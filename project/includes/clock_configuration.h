@@ -4,7 +4,11 @@
 
 #include "utils.h"
 
-#define APB1_freq		42000000	// in Hz
+#define HSE_CRYST_FREQ		8000000UL		// Frequency of the external clock
+#define HSE_MAIN_DIV		8UL			// That's the M value of the divider which down-scales the input HSE freq
+#define APB1_freq			42000000UL	// in Hz
+		// TODO: it could be really nice to add a specific function/macro which can return this value.
+		//		This could make the code mode generic and change-proof. There's probably something inside
 
 int ClockConfig_SetMainClockAndPrescalers(void);
 
@@ -50,21 +54,6 @@ int ClockConfig_SetMainClockAndPrescalers(void);
                                         tmpreg = READ_BIT(RCC->AHB1ENR, RCC_AHB1ENR_DMA2EN);\
                                         UNUSED(tmpreg); \
                                           } while(0U)
-
-#define RCC_TIM5_CLK_ENABLE()     do { \
-                                        __IO uint32_t tmpreg = 0x00U; \
-                                        SET_BIT(RCC->APB1ENR, RCC_APB1ENR_TIM5EN);\
-                                        /* Delay after an RCC peripheral clock enabling */ \
-                                        tmpreg = READ_BIT(RCC->APB1ENR, RCC_APB1ENR_TIM5EN);\
-                                        UNUSED(tmpreg); \
-                                          } while(0U)
-#define RCC_WWDG_CLK_ENABLE()     do { \
-                                        __IO uint32_t tmpreg = 0x00U; \
-                                        SET_BIT(RCC->APB1ENR, RCC_APB1ENR_WWDGEN);\
-                                        /* Delay after an RCC peripheral clock enabling */ \
-                                        tmpreg = READ_BIT(RCC->APB1ENR, RCC_APB1ENR_WWDGEN);\
-                                        UNUSED(tmpreg); \
-                                          } while(0U)
 #define RCC_SPI2_CLK_ENABLE()     do { \
                                         __IO uint32_t tmpreg = 0x00U; \
                                         SET_BIT(RCC->APB1ENR, RCC_APB1ENR_SPI2EN);\
@@ -100,5 +89,13 @@ int ClockConfig_SetMainClockAndPrescalers(void);
                                         tmpreg = READ_BIT(RCC->APB1ENR, RCC_APB1ENR_PWREN);\
                                         UNUSED(tmpreg); \
                                           } while(0U)
+
+#define RCC_SPI3_CLK_ENABLE()     do { \
+                                        __IO uint32_t tmpreg = 0x00U; \
+                                        SET_BIT(RCC->APB1ENR, RCC_APB1ENR_SPI3EN);\
+                                        /* Delay after an RCC peripheral clock enabling */ \
+                                        tmpreg = READ_BIT(RCC->APB1ENR, RCC_APB1ENR_SPI3EN);\
+                                        UNUSED(tmpreg); \
+                                      } while(0U)
 
 #endif /* _CLOCK_CONFIGURATIONS_H_ */

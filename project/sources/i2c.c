@@ -1,6 +1,7 @@
 #include "i2c.h"
 #include "stm32f407xx.h"
 #include "clock_configuration.h"
+#include "gpio.h"
 
 // Interface properties
 #define I2C_CLOCK_FREQ				100000		// in Hz
@@ -35,7 +36,7 @@ int i2c_init()
 	// Enable the GPIOB's peripheral clock
 	RCC_GPIOB_CLK_ENABLE();
 	// Configure PB8 and PB9 for i2c alternate function (AF4) and open drain
-	GPIOB->MODER |= ((2UL << GPIO_MODER_MODE8_Pos) | (2UL << GPIO_MODER_MODE9_Pos));
+	GPIOB->MODER |= ((MODER_ALTERNATE << GPIO_MODER_MODE8_Pos) | (MODER_ALTERNATE << GPIO_MODER_MODE9_Pos));
 	GPIOB->OTYPER |= (GPIO_OTYPER_OT8 | GPIO_OTYPER_OT9);
 	GPIOB->AFR[1] |= ((4UL << GPIO_AFRH_AFSEL8_Pos) | (4UL << GPIO_AFRH_AFSEL9_Pos));
 	// Enable also the I2C1's peripheral clock
@@ -63,6 +64,7 @@ static int i2c_send_start()
 	// Set the START bit and wait for the start condition to be sent
 	I2C1->CR1 |= I2C_CR1_START;
 	while (!(I2C1->SR1 & I2C_SR1_SB));
+
 	return I2C_SUCCESS;
 }
 
@@ -73,7 +75,7 @@ static int i2c_send_address(uint8_t address, uint8_t operation_mask)
 {
 	I2C1->DR = ((address << 1U) | operation_mask);
 	while (!(I2C1->SR1 & I2C_SR1_ADDR)) {
-		// If no ACK is received for the specified address, then return an error
+		// If no ACK is received for the specified address, then send the stop condition and return an error
 		if (I2C1->SR1 & I2C_SR1_AF) {
 			I2C1->SR1 &= ~I2C_SR1_AF;
 			return I2C_ERROR;
@@ -102,6 +104,8 @@ static int i2c_send_byte(uint8_t data, uint8_t wait_for_tx_to_complete)
 		// Wait for the data to be moved to the shift register
 		while(!(I2C1->SR1 & I2C_SR1_TXE));
 	}
+
+	return I2C_SUCCESS;
 }
 
 /*
@@ -116,6 +120,8 @@ static int i2c_receive_byte(uint8_t* data, uint8_t bytes_left)
 	// Wait until new data is received
 	while(!(I2C1->SR1 & I2C_SR1_RXNE));
 	*data = I2C1->DR;
+
+	return I2C_SUCCESS;
 }
 
 /*
@@ -131,12 +137,16 @@ int i2c_write_buffer(uint8_t addr, uint8_t* data, uint8_t length)
 	int ret_val = I2C_SUCCESS;
 
 	ret_val = i2c_send_start();
-	if (ret_val != I2C_SUCCESS)
-		goto terminate_operation;
+	if (ret_val != I2C_SUCCESS) {
+		i2c_send_stop();
+		return ret_val;
+	}
 
 	ret_val = i2c_send_address(addr, I2C_WRITE_MASK);
-	if (ret_val != I2C_SUCCESS)
-		goto terminate_operation;
+	if (ret_val != I2C_SUCCESS) {
+		i2c_send_stop();
+		return ret_val;
+	}
 
 	while (length > 0) {
 		i2c_send_byte(*data, (length==1));
@@ -144,8 +154,7 @@ int i2c_write_buffer(uint8_t addr, uint8_t* data, uint8_t length)
 		length--;
 	}
 
-	terminate_operation:
-		i2c_send_stop();
+	i2c_send_stop();
 
 	return ret_val;
 }
@@ -158,12 +167,16 @@ int i2c_read_buffer(uint8_t addr, uint8_t* data, uint8_t length)
 	int ret_val;
 
 	ret_val = i2c_send_start();
-	if (ret_val != I2C_SUCCESS)
+	if (ret_val != I2C_SUCCESS) {
+		i2c_send_stop();
 		return ret_val;
+	}
 
-	ret_val = i2c_send_address(addr, I2C_WRITE_MASK);
-	if (ret_val != I2C_SUCCESS)
-			return ret_val;
+	ret_val = i2c_send_address(addr, I2C_READ_MASK);
+	if (ret_val != I2C_SUCCESS) {
+		i2c_send_stop();
+		return ret_val;
+	}
 
 	while (length > 0) {
 		i2c_receive_byte(data, length);
@@ -197,11 +210,21 @@ int i2c_read_byte(uint8_t addr, uint8_t* data)
  */
 int i2c_scan_address(uint8_t addr)
 {
-	int ret_val = I2C_SUCCESS;
+	int ret_val;
 
-	i2c_send_start();
+	ret_val = i2c_send_start();
+	if (ret_val != I2C_SUCCESS) {
+		i2c_send_stop();
+		return ret_val;
+	}
+
+	ret_val = i2c_send_address(addr, I2C_READ_MASK);
+	if (ret_val != I2C_SUCCESS) {
+		i2c_send_stop();
+		return ret_val;
+	}
 
 	// Send the STOP condition
-	I2C1->CR1 |= I2C_CR1_STOP;
-	return ret_val;
+	i2c_send_stop();
+	return I2C_SUCCESS;
 }
