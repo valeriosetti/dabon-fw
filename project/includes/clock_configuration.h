@@ -33,11 +33,11 @@ int ClockConfig_SetMainClockAndPrescalers(void);
                                         tmpreg = READ_BIT(RCC->AHB1ENR, RCC_AHB1ENR_GPIOCEN);\
                                         UNUSED(tmpreg); \
                                           } while(0U)
-#define RCC_GPIOH_CLK_ENABLE()  do { \
+#define RCC_GPIOD_CLK_ENABLE()  do { \
                                         __IO uint32_t tmpreg = 0x00U; \
-                                        SET_BIT(RCC->AHB1ENR, RCC_AHB1ENR_GPIOHEN);\
+                                        SET_BIT(RCC->AHB1ENR, RCC_AHB1ENR_GPIODEN);\
                                         /* Delay after an RCC peripheral clock enabling */ \
-                                        tmpreg = READ_BIT(RCC->AHB1ENR, RCC_AHB1ENR_GPIOHEN);\
+                                        tmpreg = READ_BIT(RCC->AHB1ENR, RCC_AHB1ENR_GPIODEN);\
                                         UNUSED(tmpreg); \
                                          } while(0U)
 #define RCC_DMA1_CLK_ENABLE()  do { \
@@ -95,6 +95,22 @@ int ClockConfig_SetMainClockAndPrescalers(void);
                                         SET_BIT(RCC->APB1ENR, RCC_APB1ENR_SPI3EN);\
                                         /* Delay after an RCC peripheral clock enabling */ \
                                         tmpreg = READ_BIT(RCC->APB1ENR, RCC_APB1ENR_SPI3EN);\
+                                        UNUSED(tmpreg); \
+                                      } while(0U)
+
+#define RCC_SPI1_CLK_ENABLE()     do { \
+                                        __IO uint32_t tmpreg = 0x00U; \
+                                        SET_BIT(RCC->APB2ENR, RCC_APB2ENR_SPI1EN);\
+                                        /* Delay after an RCC peripheral clock enabling */ \
+                                        tmpreg = READ_BIT(RCC->APB2ENR, RCC_APB2ENR_SPI1EN);\
+                                        UNUSED(tmpreg); \
+                                          } while(0U)
+
+#define RCC_TIM2_CLK_ENABLE()     do { \
+                                        __IO uint32_t tmpreg = 0x00U; \
+                                        SET_BIT(RCC->APB1ENR, RCC_APB1ENR_TIM2EN);\
+                                        /* Delay after an RCC peripheral clock enabling */ \
+                                        tmpreg = READ_BIT(RCC->APB1ENR, RCC_APB1ENR_TIM2EN);\
                                         UNUSED(tmpreg); \
                                       } while(0U)
 

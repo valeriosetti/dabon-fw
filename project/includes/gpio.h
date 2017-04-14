@@ -2,10 +2,10 @@
 #define _GPIO_H_
 
 // MODER configuration bits
-#define MODER_INPUT				0x00
-#define MODER_GENERAL_PURPOSE	0x01
-#define MODER_ALTERNATE			0x02
-#define MODER_ANALOG			0x03
+#define MODER_INPUT						0x00
+#define MODER_GENERAL_PURPOSE_OUTPUT	0x01
+#define MODER_ALTERNATE					0x02
+#define MODER_ANALOG					0x03
 
 // OSPEEDR configuration bits
 #define OSPEEDR_2MHZ			0x00

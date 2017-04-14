@@ -4,6 +4,8 @@
 #include "uart.h"
 #include "debug_printf.h"
 #include "output_i2s.h"
+#include "spi.h"
+#include "timer.h"
 
 
 /*
@@ -15,31 +17,51 @@ int main(void)
 	ClockConfig_SetMainClockAndPrescalers();
 
 	// Initialize peripherals
-	i2c_init();
 	uart_init();
+	timer_init();
+	i2c_init();
+	spi_init();
 	output_i2s_init();
 
 	debug_printf("Initialization completed\n");
 
+	/*** Test I2C peripherals (codec & gas-gauge) ***/
+	// Codec
 	uint8_t tmp_addr;
-	volatile uint32_t counter;
-	debug_printf("Scanning I2C peripherals:\n");
-	for (tmp_addr=0x01; tmp_addr<0x80; tmp_addr++) {
-		for(counter=0; counter<0x000A037A; counter++);
-		if (i2c_scan_address(tmp_addr) != I2C_ERROR) {
-			debug_printf("   >>> Device found at addr = 0x%x <<<\n", tmp_addr);
-		} else {
-			debug_printf("   No device at addr = 0x%x\n", tmp_addr);
-		}
+	tmp_addr = 0x0A;
+	if (i2c_scan_address(tmp_addr) != I2C_ERROR)
+		debug_printf("  Codec found!\n");
+	else
+		debug_printf("  Codec NOT found\n");
+
+	// Gas-gauge
+	tmp_addr = 0x70;
+	if (i2c_scan_address(tmp_addr) != I2C_ERROR)
+		debug_printf("  Gas-gauge found!\n");
+	else
+		debug_printf("  Gas-gauge NOT found\n");
+
+	/*** SPI peripherals (tuner and eeprom) ***/
+	// Eeprom
+	uint8_t eeprom_id[4];
+	spi_set_eeprom_CS();
+	timer_wait_us(1);
+	spi_read(0x9F, eeprom_id, 4);
+	timer_wait_us(1);
+	spi_release_eeprom_CS();
+
+	uint8_t index;
+	for (index=0; index<sizeof(eeprom_id); index++){
+		debug_printf("SPI byte %d = 0x%x\n", index, eeprom_id[index]);
 	}
 
-//	#define STC3115_I2C_ADDRESS 		0x70
-//	uint8_t reg_addr = 24;
-//	uint8_t rx_data = 0x00;
+	// Tuner
 
+	// Timer
+	uint32_t curr_time = 0;
 	while (1)
 	{
-//		if (i2c_write_buffer(STC3115_I2C_ADDRESS, &reg_addr, 1) == I2C_SUCCESS)
-//			i2c_read_buffer(STC3115_I2C_ADDRESS, &rx_data, 1);
+		timer_wait_us(1000000UL);
+		debug_printf("%d\n", curr_time++);
 	}
 }
