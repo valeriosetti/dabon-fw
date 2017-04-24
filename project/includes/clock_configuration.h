@@ -40,6 +40,13 @@ int ClockConfig_SetMainClockAndPrescalers(void);
                                         tmpreg = READ_BIT(RCC->AHB1ENR, RCC_AHB1ENR_GPIODEN);\
                                         UNUSED(tmpreg); \
                                          } while(0U)
+#define RCC_GPIOE_CLK_ENABLE()   do { \
+                                        __IO uint32_t tmpreg = 0x00U; \
+                                        SET_BIT(RCC->AHB1ENR, RCC_AHB1ENR_GPIOEEN);\
+                                        /* Delay after an RCC peripheral clock enabling */ \
+                                        tmpreg = READ_BIT(RCC->AHB1ENR, RCC_AHB1ENR_GPIOEEN);\
+                                        UNUSED(tmpreg); \
+                                        } while(0U)
 #define RCC_DMA1_CLK_ENABLE()  do { \
                                         __IO uint32_t tmpreg = 0x00U; \
                                         SET_BIT(RCC->AHB1ENR, RCC_AHB1ENR_DMA1EN);\

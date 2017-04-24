@@ -3,6 +3,9 @@
 #include "clock_configuration.h"
 #include "gpio.h"
 
+// Constants
+#define ESC_ASCII_CODE		0x1B
+
 /*
  * Configuration macros
  */
@@ -40,6 +43,12 @@ int uart_init()
 
 	// Enable transmission
 	USART2->CR1 |= USART_CR1_TE;
+
+	// Clear the terminal on the PC side (for a clearer reading)
+	uart_put_char(ESC_ASCII_CODE);
+	uart_put_char('[');
+	uart_put_char('2');
+	uart_put_char('J');
 
 	return UART_SUCCECSS;
 }

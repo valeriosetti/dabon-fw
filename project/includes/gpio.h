@@ -13,4 +13,9 @@
 #define OSPEEDR_50MHZ			0x02
 #define OSPEED_100MHZ			0x03
 
+// PUPDR configuration bits
+#define PUPDR_NO_PULL		0x00
+#define PUPDR_PULL_UP		0x01
+#define PUPDR_PULL_DOWN		0x02
+
 #endif // _GPIO_H_

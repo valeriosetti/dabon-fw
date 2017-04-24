@@ -11,4 +11,8 @@
 #define POSITION_VAL(VAL)     (__CLZ(__RBIT(VAL)))
 #define UNUSED(x) ((void)(x))
 
+#define NULL		((void*)0)
+
+#define array_size(_x_)		(sizeof(_x_)/sizeof(_x_[0]))
+
 #endif // _UTILS_H_

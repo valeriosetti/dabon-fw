@@ -53,20 +53,37 @@ void spi_init()
 	SET_BIT(SPI1->CR1, SPI_CR1_SPE);
 }
 
-int32_t spi_read(uint8_t reg, uint8_t* data, uint32_t len)
+int32_t spi_read(uint8_t* data, uint32_t len)
 {
-	// Send the register
-	SPI1->DR = reg;
-	while(!(SPI1->SR & SPI_SR_TXE));
-	volatile uint8_t tmp = SPI1->DR;
+	// Clear the input data register in order to reset the RXNE flag.
+	// Warning: data[0] is just used as a temporary variable, but it will be overwritten
+	// 		later with useful data!
+	*data = SPI1->DR;
+
 	// Read data back
 	while (len > 0) {
 		SPI1->DR = 0x00;
-		while(!(SPI1->SR & SPI_SR_TXE));
+		while(!(SPI1->SR & SPI_SR_RXNE));
 		*data = SPI1->DR;
 		data++;
 		len--;
 	}
+
+	return SPI_SUCCESS;
+}
+
+int32_t spi_write(uint8_t* data, uint32_t len)
+{
+	// Read data back
+	while (len > 0) {
+		SPI1->DR = *data;
+		while(!(SPI1->SR & SPI_SR_TXE));
+		data++;
+		len--;
+	}
+
+	// Wait for the last byte to be completely transmitted
+	while(SPI1->SR & SPI_SR_BSY);
 
 	return SPI_SUCCESS;
 }
