@@ -70,7 +70,7 @@ void eeprom_init()
 
 	// Test EEPROM
 	eeprom_read_jedec_id();
-	eeprom_read_status_registers(&status_reg_1, &status_reg_2);
+	/*eeprom_read_status_registers(&status_reg_1, &status_reg_2);
 	eeproc_write_status_reg(0, 0);
 	eeprom_read_status_registers(&status_reg_1, &status_reg_2);
 	eeprom_write_enable();
@@ -81,7 +81,7 @@ void eeprom_init()
 	eeprom_read_status_registers(&status_reg_1, NULL);
 	eeprom_page_program(0UL, 128);
 	eeprom_read_status_registers(&status_reg_1, NULL);
-	eeprom_read_data(0UL, 128);
+	eeprom_read_data(0UL, 128);*/
 }
 
 /*

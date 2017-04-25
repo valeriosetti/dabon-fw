@@ -1,6 +1,7 @@
 # Include project's sources and includes
 include ./add_project.mk
 include ./add_ST.mk
+include ./add_external_firmwares.mk
 
 # Binaries will be generated with this name (.elf, .bin, .hex, etc)
 PROJ_NAME = dabon
@@ -11,9 +12,11 @@ OBJ_PATH = ./build/objs
 # 
 C_OBJS = $(addprefix $(OBJ_PATH)/, $(notdir $(SRCS:.c=.o)))
 ASM_OBJS = $(addprefix $(OBJ_PATH)/, $(notdir $(ASMS:.s=.o)))
+FWS_OBJS = $(addprefix $(OBJ_PATH)/, $(notdir $(FWS:.bin=.o)))
 
 VPATH = $(dir $(SRCS)) \
-		$(dir $(ASMS))
+		$(dir $(ASMS)) \
+		$(dir $(FWS))
 
 #######################################################################################
 CC=arm-none-eabi-gcc
@@ -40,10 +43,14 @@ all : $(OUT_PATH)/$(PROJ_NAME).elf
 	@$(OBJCOPY) -O binary $(OUT_PATH)/$(PROJ_NAME).elf $(OUT_PATH)/$(PROJ_NAME).bin
 	@$(SIZE) -A -x $(OUT_PATH)/$(PROJ_NAME).elf
 
-$(OUT_PATH)/$(PROJ_NAME).elf : $(C_OBJS) $(ASM_OBJS)
+$(OUT_PATH)/$(PROJ_NAME).elf : $(C_OBJS) $(ASM_OBJS) $(FWS_OBJS)
 #	@echo $(CFLAGS)
 	@echo "Assembling objects"
 	@$(CC) $(CFLAGS) $^ -o $@ 
+	
+$(FWS_OBJS) : $(OBJ_PATH)/%.o : %.bin
+	@echo "Processing"   $<
+	@$(OBJCOPY)	-I binary -O elf32-littlearm -B arm --rename-section .data=.text $< $@
 
 $(C_OBJS) : $(OBJ_PATH)/%.o : %.c
 #	@echo $(INCS)

@@ -6,6 +6,7 @@
 #include "utils.h"
 #include "clock_configuration.h"
 #include "spi.h"
+#include "string.h"
 
 #define debug_msg(...)		debug_printf_with_tag("[Tuner] ", __VA_ARGS__)
 
@@ -16,9 +17,10 @@
 
 // Private functions
 static int tuner_send_cmd(uint8_t* data_out, uint32_t data_out_size, uint8_t* data_in, uint32_t data_in_size);
+static int tuner_wait_for_cts(void);
 static int tuner_powerup(void);
-static int tuner_rd_reply(void);
 static int tuner_load_init(void);
+static int tuner_host_load(uint8_t* img_data, uint32_t len);
 static int tuner_boot(void);
 
 // List of commands
@@ -36,6 +38,24 @@ static int tuner_boot(void);
 												// 	- CL=10pF
 												//	- startup ESR = 5 x run ESR = 5 x 70ohm = 350ohm (max)
 
+// Global variables
+#define IN_OUT_BUFF_SIZE		256
+uint8_t data_out[IN_OUT_BUFF_SIZE];
+uint8_t data_in[IN_OUT_BUFF_SIZE];
+
+// Tuner's firmware
+extern const uint8_t* _binary___external_firmwares_fmhd_radio_5_0_4_bin_start;
+extern const uint8_t* _binary___external_firmwares_fmhd_radio_5_0_4_bin_end;
+extern const uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_size;
+extern const uint8_t* _binary___external_firmwares_rom00_patch_016_bin_start;
+extern const uint8_t* _binary___external_firmwares_rom00_patch_016_bin_end;
+extern const uint8_t _binary___external_firmwares_rom00_patch_016_bin_size;
+
+// status register bits
+#define PUP_STATE_mask				0xC0
+#define PUP_STATE_BOOTLOADER		0x80
+#define PUP_STATE_APPLICATION		0xC0
+#define STATUS0_CTS					0x80
 
 /*
  * Initialize the tuner
@@ -56,25 +76,19 @@ void tuner_init()
 	// Take the tuner out of reset and wait for 3ms
 	tuner_deassert_reset();
 	timer_wait_us(3000);
-
-	// << DEBUG >>
-	if (tuner_get_int_status() == 0) {
-		debug_msg("Interrupt is already asserted\n");
-	} else {
-		debug_msg("Interrupt is not asserted\n");
-	}
 	// Send power-up and then wait 20us
-	debug_msg("power-up\n");
 	tuner_powerup();
 	timer_wait_us(20);
-	// << DEBUG >>
-	if (tuner_get_int_status() == 0) {
-		debug_msg("Interrupt is now asserted\n");
-	} else {
-		debug_msg("Interrupt is still not asserted\n");
-	}
-
-	tuner_boot();	// DEBUG
+	// Begin firmware loading phase
+	tuner_load_init();
+	// Send the bootloader
+	tuner_host_load((uint8_t*)_binary___external_firmwares_rom00_patch_016_bin_start,
+			_binary___external_firmwares_rom00_patch_016_bin_size);
+	// Send the application image
+	tuner_host_load((uint8_t*)_binary___external_firmwares_fmhd_radio_5_0_4_bin_start,
+			_binary___external_firmwares_fmhd_radio_5_0_4_bin_size);
+	// Boot the image
+	tuner_boot();
 }
 
 /*
@@ -102,52 +116,44 @@ static int tuner_send_cmd(uint8_t* data_out, uint32_t data_out_size, uint8_t* da
 /*
  *
  */
+static int tuner_wait_for_cts()
+{
+	data_out[0] = TUNER_CMD_RD_REPLY;
+	do {
+		tuner_send_cmd(data_out, 1, data_in, 4);
+	} while ((data_in[0] & STATUS0_CTS) == 0);
+}
+
+/*
+ *
+ */
 static int tuner_powerup()
 {
-	uint8_t data_out[16] = {TUNER_CMD_POWER_UP,
-							0x80,	// toggle interrupt when CTS is available
-							0x17,	// external crystal; TR_SIZE=0x7 (see AN649 at section 9.1)
-							(TUNER_XTAL_STARTUP_BIAS_CURRENT/10),	// see comments in the define
-							((TUNER_XTAL_FREQ & 0x000000FF)>>0),
-							((TUNER_XTAL_FREQ & 0x0000FF00)>>8),
-							((TUNER_XTAL_FREQ & 0x00FF0000)>>16),
-							((TUNER_XTAL_FREQ & 0xFF000000)>>24),
-							(2*TUNER_XTAL_CL/0.381),	// see AN649 at section 9.3,
-							0x10,	// fixed
-							0x00,	// fixed
-							0x00,	// fixed
-							0x00,	// fixed
-							((TUNER_XTAL_STARTUP_BIAS_CURRENT/10)/2),	// see AN649 at section 9.2
-							0x00,	// fixed
-							0x00,	// fixed
-							};
-	uint8_t data_in[4];
+	data_out[0] = TUNER_CMD_POWER_UP;
+	data_out[1] = 0x80;	// toggle interrupt when CTS is available
+	data_out[2] = 0x17;	// external crystal; TR_SIZE=0x7 (see AN649 at section 9.1)
+	data_out[3] = (TUNER_XTAL_STARTUP_BIAS_CURRENT/10);	// see comments in the define
+	data_out[4] = ((TUNER_XTAL_FREQ & 0x000000FF)>>0);
+	data_out[5] = ((TUNER_XTAL_FREQ & 0x0000FF00)>>8);
+	data_out[6] = ((TUNER_XTAL_FREQ & 0x00FF0000)>>16);
+	data_out[7] = ((TUNER_XTAL_FREQ & 0xFF000000)>>24);
+	data_out[8] = (2*TUNER_XTAL_CL/0.381);	// see AN649 at section 9.3,
+	data_out[9] = 0x10;	// fixed
+	data_out[10] = 0x00;	// fixed
+	data_out[11] = 0x00;	// fixed
+	data_out[12] = 0x00;	// fixed
+	data_out[13] = ((TUNER_XTAL_STARTUP_BIAS_CURRENT/10)/2);	// see AN649 at section 9.2
+	data_out[14] = 0x00;	// fixed
+	data_out[15] = 0x00;	// fixed
 
 	debug_msg("powerup\n");
-	tuner_send_cmd(data_out, array_size(data_out), data_in, array_size(data_in));
-}
+	tuner_send_cmd(data_out, 16, NULL, 0);
 
-/*
- *
- */
-static int tuner_rd_reply()
-{
-	uint8_t data_in[6];
+	tuner_wait_for_cts();
 
-	debug_msg("rd_reply\n");
-	tuner_send_cmd(NULL, 0, data_in, array_size(data_in));
-}
-
-/*
- *
- */
-static int tuner_boot()
-{
-	uint8_t data_out[2] = {TUNER_CMD_BOOT, 0x00};
-	uint8_t data_in[4];
-
-	debug_msg("boot\n");
-	tuner_send_cmd(data_out, array_size(data_out), data_in, array_size(data_in));
+	// data_in[3] contains informations about the current device's state
+	if ((data_in[3] & PUP_STATE_mask) != PUP_STATE_BOOTLOADER)
+		debug_msg("  failure!\n");
 }
 
 /*
@@ -155,9 +161,42 @@ static int tuner_boot()
  */
 static int tuner_load_init()
 {
-	uint8_t data_out[2] = {TUNER_CMD_LOAD_INIT, 0x00};
-	uint8_t data_in[4];
+	data_out[0] = TUNER_CMD_LOAD_INIT;
+	data_out[1] = 0x00;
 
 	debug_msg("load_init\n");
-	tuner_send_cmd(data_out, array_size(data_out), data_in, array_size(data_in));
+	tuner_send_cmd(data_out, 2, NULL, 0);
+
+	tuner_wait_for_cts();
+}
+
+/*
+ *
+ */
+static int tuner_host_load(uint8_t* img_data, uint32_t len)
+{
+	data_out[0] = TUNER_CMD_HOST_LOAD;
+	data_out[1] = 0x00;
+	data_out[2] = 0x00;
+	data_out[3] = 0x00;
+
+	memcpy(&(data_out[4]), img_data, len);
+	debug_msg("host_load\n");
+	tuner_send_cmd(data_out, len+4, NULL, 0);
+
+	tuner_wait_for_cts();
+}
+
+/*
+ *
+ */
+static int tuner_boot()
+{
+	data_out[0] = TUNER_CMD_BOOT;
+	data_out[1] = 0x00;
+
+	debug_msg("boot\n");
+	tuner_send_cmd(data_out, 2, NULL, 0);
+
+	tuner_wait_for_cts();
 }
