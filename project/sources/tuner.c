@@ -17,11 +17,12 @@
 
 // Private functions
 static int tuner_send_cmd(uint8_t* data_out, uint32_t data_out_size, uint8_t* data_in, uint32_t data_in_size);
-static int tuner_wait_for_cts(void);
+static int tuner_wait_for_cts(uint32_t extra_data_len);
 static int tuner_powerup(void);
 static int tuner_load_init(void);
 static int tuner_host_load(uint8_t* img_data, uint32_t len);
 static int tuner_boot(void);
+static int tuner_get_sys_state(void);
 
 // List of commands
 #define TUNER_CMD_RD_REPLY		0x00
@@ -29,6 +30,7 @@ static int tuner_boot(void);
 #define TUNER_CMD_HOST_LOAD		0x04
 #define TUNER_CMD_LOAD_INIT		0x06
 #define TUNER_CMD_BOOT			0x07
+#define TUNER_CMD_GET_SYS_STATE	0x09
 
 // Properties
 #define TUNER_XTAL_FREQ						19200000L
@@ -44,18 +46,21 @@ uint8_t data_out[IN_OUT_BUFF_SIZE];
 uint8_t data_in[IN_OUT_BUFF_SIZE];
 
 // Tuner's firmware
-extern const uint8_t* _binary___external_firmwares_fmhd_radio_5_0_4_bin_start;
-extern const uint8_t* _binary___external_firmwares_fmhd_radio_5_0_4_bin_end;
-extern const uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_size;
-extern const uint8_t* _binary___external_firmwares_rom00_patch_016_bin_start;
-extern const uint8_t* _binary___external_firmwares_rom00_patch_016_bin_end;
-extern const uint8_t _binary___external_firmwares_rom00_patch_016_bin_size;
+//extern uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_start;
+//extern uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_end;
+extern uint8_t _binary___external_firmwares_dab_radio_5_0_5_bin_start;
+extern uint8_t _binary___external_firmwares_dab_radio_5_0_5_bin_end;
+extern uint8_t _binary___external_firmwares_rom00_patch_016_bin_start;
+extern uint8_t _binary___external_firmwares_rom00_patch_016_bin_end;
+
+#define sizeof_binary_image(_img_name_)		(uint32_t)((&_img_name_##_end)-(&_img_name_##_start))
 
 // status register bits
 #define PUP_STATE_mask				0xC0
 #define PUP_STATE_BOOTLOADER		0x80
 #define PUP_STATE_APPLICATION		0xC0
 #define STATUS0_CTS					0x80
+#define STATUS0_ERRCMD				0x40
 
 /*
  * Initialize the tuner
@@ -81,14 +86,25 @@ void tuner_init()
 	timer_wait_us(20);
 	// Begin firmware loading phase
 	tuner_load_init();
-	// Send the bootloader
-	tuner_host_load((uint8_t*)_binary___external_firmwares_rom00_patch_016_bin_start,
-			_binary___external_firmwares_rom00_patch_016_bin_size);
-	// Send the application image
-	tuner_host_load((uint8_t*)_binary___external_firmwares_fmhd_radio_5_0_4_bin_start,
-			_binary___external_firmwares_fmhd_radio_5_0_4_bin_size);
+	// Send the bootloader image
+	tuner_host_load(&_binary___external_firmwares_rom00_patch_016_bin_start,
+			sizeof_binary_image(_binary___external_firmwares_rom00_patch_016_bin));
+	// Wait for 4ms
+	timer_wait_us(4000);
+	// Begin firmware loading phase
+	tuner_load_init();
+	// Send the application image (FM)
+//	tuner_host_load(&_binary___external_firmwares_fmhd_radio_5_0_4_bin_start,
+//			sizeof_binary_image(_binary___external_firmwares_fmhd_radio_5_0_4_bin));
+	// Send the application image (DAB)
+	tuner_host_load(&_binary___external_firmwares_dab_radio_5_0_5_bin_start,
+			sizeof_binary_image(_binary___external_firmwares_dab_radio_5_0_5_bin));
+	// Wait for 4ms
+	timer_wait_us(4000);
 	// Boot the image
 	tuner_boot();
+	// Get sys state
+	tuner_get_sys_state();
 }
 
 /*
@@ -116,12 +132,13 @@ static int tuner_send_cmd(uint8_t* data_out, uint32_t data_out_size, uint8_t* da
 /*
  *
  */
-static int tuner_wait_for_cts()
+static int tuner_wait_for_cts(uint32_t extra_data_len)
 {
 	data_out[0] = TUNER_CMD_RD_REPLY;
 	do {
-		tuner_send_cmd(data_out, 1, data_in, 4);
+		tuner_send_cmd(data_out, 1, data_in, 4+extra_data_len);
 	} while ((data_in[0] & STATUS0_CTS) == 0);
+
 }
 
 /*
@@ -149,7 +166,7 @@ static int tuner_powerup()
 	debug_msg("powerup\n");
 	tuner_send_cmd(data_out, 16, NULL, 0);
 
-	tuner_wait_for_cts();
+	tuner_wait_for_cts(0);
 
 	// data_in[3] contains informations about the current device's state
 	if ((data_in[3] & PUP_STATE_mask) != PUP_STATE_BOOTLOADER)
@@ -167,7 +184,7 @@ static int tuner_load_init()
 	debug_msg("load_init\n");
 	tuner_send_cmd(data_out, 2, NULL, 0);
 
-	tuner_wait_for_cts();
+	tuner_wait_for_cts(0);
 }
 
 /*
@@ -175,16 +192,31 @@ static int tuner_load_init()
  */
 static int tuner_host_load(uint8_t* img_data, uint32_t len)
 {
-	data_out[0] = TUNER_CMD_HOST_LOAD;
-	data_out[1] = 0x00;
-	data_out[2] = 0x00;
-	data_out[3] = 0x00;
+	uint32_t curr_len;
 
-	memcpy(&(data_out[4]), img_data, len);
-	debug_msg("host_load\n");
-	tuner_send_cmd(data_out, len+4, NULL, 0);
+	// Each command can send up to 4096 bytes. Therefore, if the sent
+	// image is bigger, then split it into consecutive chucks
+	do {
+		data_out[0] = TUNER_CMD_HOST_LOAD;
+		data_out[1] = 0x00;
+		data_out[2] = 0x00;
+		data_out[3] = 0x00;
 
-	tuner_wait_for_cts();
+		curr_len = (len > 4096) ? 4096 : len;
+		debug_msg("host_load with %d bytes\n", curr_len);
+
+		spi_set_tuner_CS();
+		timer_wait_us(1);
+		spi_write(data_out, 4);
+		spi_write(img_data, curr_len);
+		timer_wait_us(1);
+		spi_release_tuner_CS();
+
+		tuner_wait_for_cts(0);
+
+		len -= curr_len;
+		img_data += curr_len;
+	} while(len > 0);
 }
 
 /*
@@ -198,5 +230,19 @@ static int tuner_boot()
 	debug_msg("boot\n");
 	tuner_send_cmd(data_out, 2, NULL, 0);
 
-	tuner_wait_for_cts();
+	tuner_wait_for_cts(0);
+}
+
+/*
+ *
+ */
+static int tuner_get_sys_state()
+{
+	data_out[0] = TUNER_CMD_GET_SYS_STATE;
+	data_out[1] = 0x00;
+
+	debug_msg("get_sys_state\n");
+	tuner_send_cmd(data_out, 2, NULL, 0);
+
+	tuner_wait_for_cts(2);
 }
