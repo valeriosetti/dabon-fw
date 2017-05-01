@@ -15,14 +15,18 @@
 #define tuner_deassert_reset()		SET_BIT(GPIOD->BSRR, GPIO_BSRR_BS8)
 #define tuner_get_int_status()		READ_BIT(GPIOD->IDR, GPIO_IDR_ID6)
 
-// Private functions
+// Private functions for commands
 static int tuner_send_cmd(uint8_t* data_out, uint32_t data_out_size, uint8_t* data_in, uint32_t data_in_size);
-static int tuner_wait_for_cts(uint32_t extra_data_len);
+static int tuner_rd_reply(uint32_t extra_data_len);
 static int tuner_powerup(void);
 static int tuner_load_init(void);
 static int tuner_host_load(uint8_t* img_data, uint32_t len);
 static int tuner_boot(void);
 static int tuner_get_sys_state(void);
+// Private functions for advanced management
+static int tuner_wait_for_cts(void);
+static int tuner_start_dab(void);
+
 
 // List of commands
 #define TUNER_CMD_RD_REPLY		0x00
@@ -41,7 +45,7 @@ static int tuner_get_sys_state(void);
 												//	- startup ESR = 5 x run ESR = 5 x 70ohm = 350ohm (max)
 
 // Global variables
-#define IN_OUT_BUFF_SIZE		256
+#define IN_OUT_BUFF_SIZE		32
 uint8_t data_out[IN_OUT_BUFF_SIZE];
 uint8_t data_in[IN_OUT_BUFF_SIZE];
 
@@ -62,6 +66,9 @@ extern uint8_t _binary___external_firmwares_rom00_patch_016_bin_end;
 #define STATUS0_CTS					0x80
 #define STATUS0_ERRCMD				0x40
 
+/********************************************************************************
+ * BASIC FUNCTIONS
+ ********************************************************************************/
 /*
  * Initialize the tuner
  * Note: it assumes that the SPI is already initialized
@@ -77,34 +84,6 @@ void tuner_init()
 	MODIFY_REG(GPIOD->OSPEEDR, GPIO_MODER_MODE8_Msk, OSPEEDR_50MHZ << GPIO_MODER_MODE8_Pos);
 	MODIFY_REG(GPIOD->MODER, GPIO_MODER_MODE6_Msk, MODER_INPUT << GPIO_MODER_MODE6_Pos);
 	MODIFY_REG(GPIOD->PUPDR, GPIO_PUPDR_PUPD6_Msk, PUPDR_PULL_UP << GPIO_PUPDR_PUPD6_Pos);
-
-	// Take the tuner out of reset and wait for 3ms
-	tuner_deassert_reset();
-	timer_wait_us(3000);
-	// Send power-up and then wait 20us
-	tuner_powerup();
-	timer_wait_us(20);
-	// Begin firmware loading phase
-	tuner_load_init();
-	// Send the bootloader image
-	tuner_host_load(&_binary___external_firmwares_rom00_patch_016_bin_start,
-			sizeof_binary_image(_binary___external_firmwares_rom00_patch_016_bin));
-	// Wait for 4ms
-	timer_wait_us(4000);
-	// Begin firmware loading phase
-	tuner_load_init();
-	// Send the application image (FM)
-//	tuner_host_load(&_binary___external_firmwares_fmhd_radio_5_0_4_bin_start,
-//			sizeof_binary_image(_binary___external_firmwares_fmhd_radio_5_0_4_bin));
-	// Send the application image (DAB)
-	tuner_host_load(&_binary___external_firmwares_dab_radio_5_0_5_bin_start,
-			sizeof_binary_image(_binary___external_firmwares_dab_radio_5_0_5_bin));
-	// Wait for 4ms
-	timer_wait_us(4000);
-	// Boot the image
-	tuner_boot();
-	// Get sys state
-	tuner_get_sys_state();
 }
 
 /*
@@ -121,24 +100,25 @@ static int tuner_send_cmd(uint8_t* data_out, uint32_t data_out_size, uint8_t* da
 	timer_wait_us(1);
 	spi_release_tuner_CS();
 
-	if (data_in != NULL) {
+	// Uncomment the following block to read the SPI's received data for each command
+	/*if (data_in != NULL) {
 		int i;
 		for (i=0; i<data_in_size; i++) {
 			debug_msg("  rsp byte %d = 0x%x\n", i, data_in[i]);
 		}
-	}
+	}*/
 }
 
+/********************************************************************************
+ * COMMANDS FUNCTIONS
+ ********************************************************************************/
 /*
  *
  */
-static int tuner_wait_for_cts(uint32_t extra_data_len)
+static int tuner_rd_reply(uint32_t extra_data_len)
 {
 	data_out[0] = TUNER_CMD_RD_REPLY;
-	do {
-		tuner_send_cmd(data_out, 1, data_in, 4+extra_data_len);
-	} while ((data_in[0] & STATUS0_CTS) == 0);
-
+	tuner_send_cmd(data_out, 1, data_in, 4+extra_data_len);
 }
 
 /*
@@ -163,14 +143,12 @@ static int tuner_powerup()
 	data_out[14] = 0x00;	// fixed
 	data_out[15] = 0x00;	// fixed
 
-	debug_msg("powerup\n");
 	tuner_send_cmd(data_out, 16, NULL, 0);
-
-	tuner_wait_for_cts(0);
+	tuner_wait_for_cts();
 
 	// data_in[3] contains informations about the current device's state
 	if ((data_in[3] & PUP_STATE_mask) != PUP_STATE_BOOTLOADER)
-		debug_msg("  failure!\n");
+		debug_msg("powerup failure\n");
 }
 
 /*
@@ -181,10 +159,9 @@ static int tuner_load_init()
 	data_out[0] = TUNER_CMD_LOAD_INIT;
 	data_out[1] = 0x00;
 
-	debug_msg("load_init\n");
 	tuner_send_cmd(data_out, 2, NULL, 0);
 
-	tuner_wait_for_cts(0);
+	tuner_wait_for_cts();
 }
 
 /*
@@ -203,7 +180,6 @@ static int tuner_host_load(uint8_t* img_data, uint32_t len)
 		data_out[3] = 0x00;
 
 		curr_len = (len > 4096) ? 4096 : len;
-		debug_msg("host_load with %d bytes\n", curr_len);
 
 		spi_set_tuner_CS();
 		timer_wait_us(1);
@@ -212,7 +188,7 @@ static int tuner_host_load(uint8_t* img_data, uint32_t len)
 		timer_wait_us(1);
 		spi_release_tuner_CS();
 
-		tuner_wait_for_cts(0);
+		tuner_wait_for_cts();
 
 		len -= curr_len;
 		img_data += curr_len;
@@ -227,10 +203,13 @@ static int tuner_boot()
 	data_out[0] = TUNER_CMD_BOOT;
 	data_out[1] = 0x00;
 
-	debug_msg("boot\n");
 	tuner_send_cmd(data_out, 2, NULL, 0);
 
-	tuner_wait_for_cts(0);
+	tuner_wait_for_cts();
+
+	// data_in[3] contains informations about the current device's state
+	if ((data_in[3] & PUP_STATE_mask) != PUP_STATE_APPLICATION)
+		debug_msg("boot failure\n");
 }
 
 /*
@@ -241,8 +220,64 @@ static int tuner_get_sys_state()
 	data_out[0] = TUNER_CMD_GET_SYS_STATE;
 	data_out[1] = 0x00;
 
-	debug_msg("get_sys_state\n");
 	tuner_send_cmd(data_out, 2, NULL, 0);
 
-	tuner_wait_for_cts(2);
+	tuner_rd_reply(2);
+
+	switch(data_in[4]) {
+		case 0:
+			debug_msg("Bootloader mode\n");
+			break;
+		case 1:
+			debug_msg("FMHD mode\n");
+			break;
+		case 2:
+			debug_msg("DAB mode\n");
+			break;
+		default:
+			debug_msg("Unknown/don't care\n");
+			break;
+	}
+}
+
+/********************************************************************************
+ * ADVANCED FUNCTIONS
+ ********************************************************************************/
+/*
+ *
+ */
+static int tuner_wait_for_cts()
+{
+	do {
+		tuner_rd_reply(0);
+	} while ((data_in[0] & STATUS0_CTS) == 0);
+}
+
+/*
+ *
+ */
+static int tuner_start_dab()
+{
+	// Take the tuner out of reset and wait for 3ms
+	tuner_deassert_reset();
+	timer_wait_us(3000);
+	// Send power-up and then wait 20us
+	tuner_powerup();
+	timer_wait_us(20);
+	// Begin firmware loading phase
+	tuner_load_init();
+	// Send the bootloader image
+	tuner_host_load(&_binary___external_firmwares_rom00_patch_016_bin_start,
+			sizeof_binary_image(_binary___external_firmwares_rom00_patch_016_bin));
+	// Wait for 4ms
+	timer_wait_us(4000);
+	// Begin firmware loading phase
+	tuner_load_init();
+	// Send the application image (DAB)
+	tuner_host_load(&_binary___external_firmwares_dab_radio_5_0_5_bin_start,
+			sizeof_binary_image(_binary___external_firmwares_dab_radio_5_0_5_bin));
+	// Wait for 4ms
+	timer_wait_us(4000);
+	// Boot the image
+	tuner_boot();
 }

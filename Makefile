@@ -41,7 +41,7 @@ all : $(OUT_PATH)/$(PROJ_NAME).elf
 	@echo "Creating HEX and BIN files"
 	@$(OBJCOPY) -O ihex $(OUT_PATH)/$(PROJ_NAME).elf $(OUT_PATH)/$(PROJ_NAME).hex
 	@$(OBJCOPY) -O binary $(OUT_PATH)/$(PROJ_NAME).elf $(OUT_PATH)/$(PROJ_NAME).bin
-	@$(SIZE) -A -x $(OUT_PATH)/$(PROJ_NAME).elf
+#	@$(SIZE) -A -x $(OUT_PATH)/$(PROJ_NAME).elf
 
 $(OUT_PATH)/$(PROJ_NAME).elf : $(C_OBJS) $(ASM_OBJS) $(FWS_OBJS)
 #	@echo $(CFLAGS)

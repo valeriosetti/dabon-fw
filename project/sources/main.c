@@ -7,6 +7,8 @@
 #include "spi.h"
 #include "timer.h"
 #include "tuner.h"
+#include "fsmc.h"
+#include "oled.h"
 
 #define debug_msg(...)		debug_printf_with_tag("[Main] ", __VA_ARGS__)
 
@@ -21,10 +23,12 @@ void HW_init()
 	i2c_init();
 	spi_init();
 	output_i2s_init();
+	fsmc_init();
 
 	// Peripherals
 	eeprom_init();
 	tuner_init();
+	oled_init();
 	debug_msg("Initialization completed\n");
 }
 
