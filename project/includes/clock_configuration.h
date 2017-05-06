@@ -121,4 +121,12 @@ int ClockConfig_SetMainClockAndPrescalers(void);
                                         UNUSED(tmpreg); \
                                       } while(0U)
 
+#define RCC_FSMC_CLK_ENABLE()   do { \
+                                      __IO uint32_t tmpreg = 0x00U; \
+                                      SET_BIT(RCC->AHB3ENR, RCC_AHB3ENR_FSMCEN);\
+                                      /* Delay after an RCC peripheral clock enabling */ \
+                                      tmpreg = READ_BIT(RCC->AHB3ENR, RCC_AHB3ENR_FSMCEN);\
+                                      UNUSED(tmpreg); \
+                                      } while(0U)
+
 #endif /* _CLOCK_CONFIGURATIONS_H_ */
