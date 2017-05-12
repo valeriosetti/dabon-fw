@@ -3,7 +3,7 @@
 
 #include "stdint.h"
 
-#define FSMC_DATA_ADDRESS			((volatile uint8_t*) 0x60020000) 	// D/C = 1
+#define FSMC_DATA_ADDRESS			((volatile uint8_t*) 0x60010000) 	// D/C = 1
 #define FSMC_COMMAND_ADDRESS		((volatile uint8_t*) 0x60000000) 	// D/C = 0
 
 #define fsmc_read(addr)				((*addr))

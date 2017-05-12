@@ -25,7 +25,7 @@ static int oled_power_off(void);
 #define SET_DISPLAY_OFFSET										0xD3
 #define SET_START_LINE											0x40
 #define SET_NORMAL_DISPLAY										0xA6
-#define ENTIRE_DISPLAY_OFF										0xA4
+#define ENTIRE_DISPLAY_ON										0xA4
 #define SET_SEGMENT_REMAP										0xA1
 #define SET_COM_SCAN_DIRECTION									0xC8
 #define SET_COM_PIN_HW_CONFIGURATION							0xDA
@@ -50,11 +50,34 @@ void oled_init()
 	MODIFY_REG(GPIOD->MODER, GPIO_MODER_MODE9_Msk, (MODER_GENERAL_PURPOSE_OUTPUT << GPIO_MODER_MODE9_Pos) );
 	MODIFY_REG(GPIOD->OSPEEDR, GPIO_MODER_MODE9_Msk, OSPEEDR_50MHZ << GPIO_MODER_MODE9_Pos);
 
+	oled_assert_reset();
 	// Keep LCD_RES pin low for at least 3us, then release it
 	timer_wait_us(5);
 	oled_deassert_reset();
 	// power on the display
 	oled_power_on();
+
+	// DEBUG
+	unsigned char i,j,num=0;
+	for(i=0;i<0x08;i++)
+	{
+		oled_set_page_start_address(i);
+		oled_set_column_start_address(0x00);
+		for(j=0;j<0x80;j++)
+		{
+			fsmc_write(FSMC_DATA_ADDRESS, j);
+		}
+	}
+	for(i=0;i<0x08;i++)
+	{
+		oled_set_page_start_address(i);
+		oled_set_column_start_address(0x00);
+		for(j=0;j<0x80;j++)
+		{
+			debug_msg("0x%x ", fsmc_read(FSMC_DATA_ADDRESS));
+		}
+		debug_msg("\n");
+	}
 }
 
 /*
@@ -62,7 +85,7 @@ void oled_init()
  */
 static int oled_power_on()
 {
-	debug_msg("display on");
+	debug_msg("display on\n");
 	// turn panel off
 	fsmc_write(FSMC_COMMAND_ADDRESS, SET_DISPLAY_OFF);
 	// set display clock divide ratio/oscillator frequency
@@ -81,8 +104,8 @@ static int oled_power_on()
 	fsmc_write(FSMC_COMMAND_ADDRESS, SET_START_LINE);
 	// set normal display
 	fsmc_write(FSMC_COMMAND_ADDRESS, SET_NORMAL_DISPLAY);
-	// set entire display off
-	fsmc_write(FSMC_COMMAND_ADDRESS, ENTIRE_DISPLAY_OFF);
+	// set entire display on
+	fsmc_write(FSMC_COMMAND_ADDRESS, ENTIRE_DISPLAY_ON);
 	// set segment re-map
 	fsmc_write(FSMC_COMMAND_ADDRESS, SET_SEGMENT_REMAP);
 	// set scan direction
