@@ -68,7 +68,7 @@ void oled_init()
 			fsmc_write(FSMC_DATA_ADDRESS, j);
 		}
 	}
-	for(i=0;i<0x08;i++)
+	/*for(i=0;i<0x08;i++)
 	{
 		oled_set_page_start_address(i);
 		oled_set_column_start_address(0x00);
@@ -77,7 +77,7 @@ void oled_init()
 			debug_msg("0x%x ", fsmc_read(FSMC_DATA_ADDRESS));
 		}
 		debug_msg("\n");
-	}
+	}*/
 }
 
 /*
