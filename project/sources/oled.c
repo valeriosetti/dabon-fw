@@ -5,6 +5,7 @@
 #include "clock_configuration.h"
 #include "debug_printf.h"
 #include "fsmc.h"
+#include "dabon_logo.h"
 
 #define debug_msg(...)		debug_printf_with_tag("[Oled] ", __VA_ARGS__)
 
@@ -35,6 +36,7 @@ static int oled_power_off(void);
 #define SET_PAGE_START_ADDRESS									0xB0
 #define SET_HIGHER_COLUMN_START_ADDRESS							0x10
 #define SET_LOWER_COLUMN_START_ADDRESS							0x00
+#define SET_MEMORY_ADDRESSING_METHOD							0x20
 
 // Global variables
 uint8_t contrast_level = 0x80;
@@ -58,26 +60,27 @@ void oled_init()
 	oled_power_on();
 
 	// DEBUG
-	unsigned char i,j,num=0;
+	uint32_t dabon_logo_byte = 0;
+	unsigned char i,j,num = 0;
 	for(i=0;i<0x08;i++)
 	{
 		oled_set_page_start_address(i);
 		oled_set_column_start_address(0x00);
 		for(j=0;j<0x80;j++)
 		{
-			fsmc_write(FSMC_DATA_ADDRESS, j);
+			fsmc_write(FSMC_DATA_ADDRESS, dabon_logo[dabon_logo_byte++]);
 		}
 	}
-	for(i=0;i<0x08;i++)
-	{
-		oled_set_page_start_address(i);
-		oled_set_column_start_address(0x00);
-		for(j=0;j<0x80;j++)
-		{
-			debug_msg("0x%x ", fsmc_read(FSMC_DATA_ADDRESS));
-		}
-		debug_msg("\n");
-	}
+//	for(i=0;i<0x08;i++)
+//	{
+//		oled_set_page_start_address(i);
+//		oled_set_column_start_address(0x00);
+//		for(j=0;j<0x80;j++)
+//		{
+//			debug_msg("0x%x ", fsmc_read(FSMC_DATA_ADDRESS));
+//		}
+//		debug_msg("\n");
+//	}
 }
 
 /*
@@ -100,6 +103,9 @@ static int oled_power_on()
 	// enable charge pump
 	fsmc_write(FSMC_COMMAND_ADDRESS, CHARGE_PUMP_SETTING);
 	fsmc_write(FSMC_COMMAND_ADDRESS, 0x14);
+	// set memory access method
+	fsmc_write(FSMC_COMMAND_ADDRESS, SET_MEMORY_ADDRESSING_METHOD);
+	fsmc_write(FSMC_COMMAND_ADDRESS, 0x10);
 	// set start line address
 	fsmc_write(FSMC_COMMAND_ADDRESS, SET_START_LINE);
 	// set normal display
