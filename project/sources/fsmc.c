@@ -9,7 +9,7 @@
  */
 void fsmc_init()
 {
-	// Enable the GPIOB's peripheral clock
+	// Enable the GPIOs' peripheral clock
 	RCC_GPIOD_CLK_ENABLE();
 	RCC_GPIOE_CLK_ENABLE();
 
