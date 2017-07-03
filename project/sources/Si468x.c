@@ -107,51 +107,6 @@ static int Si468x_start_dab(void);
 #define DAB_CTRL_DAB_MUTE_SIGLOW_THRESHOLD          0xB505
 #define DAB_TEST_BER_CONFIG                         0xE800
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // Properties
 #define SI468X_XTAL_FREQ						19200000L
 #define SI468X_XTAL_CL							10	// in pF - that's taken from the crystal's datasheet!
@@ -217,12 +172,12 @@ static int Si468x_send_cmd(uint8_t* data_out, uint32_t data_out_size, uint8_t* d
 	spi_release_Si468x_CS();
 
 	// Uncomment the following block to read the SPI's received data for each command
-	/*if (data_in != NULL) {
+	if (data_in != NULL) {
 		int i;
 		for (i=0; i<data_in_size; i++) {
 			debug_msg("  rsp byte %d = 0x%x\n", i, data_in[i]);
 		}
-	}*/
+	}
 }
 
 /********************************************************************************
@@ -396,4 +351,22 @@ static int Si468x_start_dab()
 	timer_wait_us(4000);
 	// Boot the image
 	Si468x_boot();
+
+	return SI468X_SUCCESS;
+}
+
+int Si468x_get_digital_service_list(void)
+{
+	// Fills data_out buffer with "Get digital service list" and the command argument
+	data_out[0] = SI468X_GET_DIGITAL_SERVICE_LIST;
+	data_out[1] = 0x00;
+	Si468x_send_cmd(data_out, 2, NULL, 0);
+
+	// Waits for CTS
+	Si468x_wait_for_cts();
+
+	// Parses reply from Si4684
+
+
+	return SI468X_SUCCESS;
 }
