@@ -129,4 +129,12 @@ int ClockConfig_SetMainClockAndPrescalers(void);
                                       UNUSED(tmpreg); \
                                       } while(0U)
 
+#define RCC_SDIO_CLK_ENABLE()     do { \
+                                        __IO uint32_t tmpreg = 0x00U; \
+                                        SET_BIT(RCC->APB2ENR, RCC_APB2ENR_SDIOEN);\
+                                        /* Delay after an RCC peripheral clock enabling */ \
+                                        tmpreg = READ_BIT(RCC->APB2ENR, RCC_APB2ENR_SDIOEN);\
+                                        UNUSED(tmpreg); \
+                                      } while(0U)
+
 #endif /* _CLOCK_CONFIGURATIONS_H_ */
