@@ -47,7 +47,7 @@ int main(void)
 	HW_init();
 
 	/*** Test I2C peripherals (codec & gas-gauge) ***/
-/*	// Codec
+	// Codec
 	uint8_t tmp_addr;
 	tmp_addr = 0x0A;
 	if (i2c_scan_address(tmp_addr) != I2C_ERROR)
@@ -61,12 +61,13 @@ int main(void)
 		debug_msg("  Gas-gauge found!\n");
 	else
 		debug_msg("  Gas-gauge NOT found\n");
-*/
+
+
 	// Timer
-	uint32_t curr_time = 0;
+	/*uint32_t curr_time = 0;
 	while (1)
 	{
 		timer_wait_us(1000000UL);
 		debug_msg("[%d] card inserted = %d\n", curr_time++, sd_card_is_card_inserted());
-	}
+	}*/
 }

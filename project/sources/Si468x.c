@@ -15,6 +15,18 @@
 #define Si468x_deassert_reset()		SET_BIT(GPIOD->BSRR, GPIO_BSRR_BS8)
 #define Si468x_get_int_status()		READ_BIT(GPIOD->IDR, GPIO_IDR_ID6)
 
+// Typedefs
+typedef enum{
+	POLLING 	= 0,
+	INTERRUPT 	= 1
+} CTS_type;
+
+typedef enum{
+	AUTOMATIC	= 0,
+	LOW_SIDE	= 1,
+	HIGH_SID	= 2
+} injection_type;
+
 // Private functions for commands
 static int Si468x_send_cmd(uint8_t* data_out, uint32_t data_out_size, uint8_t* data_in, uint32_t data_in_size);
 static int Si468x_rd_reply(uint32_t extra_data_len);
@@ -24,88 +36,93 @@ static int Si468x_host_load(uint8_t* img_data, uint32_t len);
 static int Si468x_boot(void);
 static int Si468x_get_sys_state(void);
 // Private functions for advanced management
-static int Si468x_wait_for_cts(void);
+void Si468x_wait_for_cts(CTS_type type);
 static int Si468x_start_dab(void);
+static int Si468x_get_digital_service_list(void);
+static int Si468x_dab_get_freq_list(Si468x_DAB_freq_list *list);
+void Si468x_get_part_info(Si468x_info *info);
+static int Si468x_dab_tune_freq(uint8_t freq, injection_type injection, uint16_t antcap);
 
 
 // List of commands for DAB mode
-#define SI468X_CMD_RD_REPLY							0x00
-#define SI468X_CMD_POWER_UP						    0x01
-#define SI468X_CMD_HOST_LOAD					    0x04
-#define SI468X_CMD_FLASH_LOAD					    0x05
-#define SI468X_CMD_LOAD_INIT					    0x06
-#define SI468X_CMD_BOOT							    0x07
-#define SI468X_CMD_GET_SYS_STATE				    0x09
-#define GET_POWER_UP_ARGS                           0x0A
-#define SI468X_READ_OFFSET                          0x10
-#define SI468X_GET_FUNC_INFO                        0x12
-#define SI468X_SET_PROPERTY                         0x13
-#define SI468X_GET_PROPERTY                         0x14
-#define SI468X_WRITE_STORAGE                        0x15
-#define SI468X_READ_STORAGE                         0x16
-#define SI468X_GET_DIGITAL_SERVICE_LIST             0x80
-#define SI468X_START_DIGITAL_SERVICE                0x81
-#define SI468X_STOP_DIGITAL_SERVICE                 0x82
-#define SI468X_GET_DIGITAL_SERVICE_DATA             0x84
-#define SI468X_DAB_TUNE_FREQ                        0xB0
-#define SI468X_DAB_DIGRAD_STATUS                    0xB2
-#define SI468X_DAB_GET_EVENT_STATUS                 0xB3
-#define SI468X_DAB_GET_ENSEMBLE_INFO                0xB4
-#define SI468X_DAB_GET_SERVICE_LINKING_INFO         0xB7
-#define SI468X_DAB_SET_FREQ_LIST                    0xB8
-#define SI468X_DAB_GET_FREQ_LIST                    0xB9
-#define SI468X_DAB_GET_COMPONENT_INFO               0xBB
-#define SI468X_DAB_GET_TIME                         0xBC
-#define SI468X_DAB_GET_AUDIO_INFO                   0xBD
-#define SI468X_DAB_GET_SUBCHAN_INFO                 0xBE
-#define SI468X_DAB_GET_FREQ_INFO                    0xBF
-#define SI468X_DAB_GET_SERVICE_INFO                 0xC0
-#define SI468X_TEST_GET_RSSI                        0xE5
-#define SI468X_DAB_TEST_GET_BER_INFO                0xE8
+#define SI468X_CMD_RD_REPLY								0x00
+#define SI468X_CMD_POWER_UP						    	0x01
+#define SI468X_CMD_HOST_LOAD					    	0x04
+#define SI468X_CMD_FLASH_LOAD					    	0x05
+#define SI468X_CMD_LOAD_INIT					    	0x06
+#define SI468X_CMD_BOOT							    	0x07
+#define SI468X_CMD_GET_PART_INFO						0x08
+#define SI468X_CMD_GET_SYS_STATE				    	0x09
+#define SI468X_CMD_GET_POWER_UP_ARGS                	0x0A
+#define SI468X_CMD_READ_OFFSET                          0x10
+#define SI468X_CMD_GET_FUNC_INFO                        0x12
+#define SI468X_CMD_SET_PROPERTY                         0x13
+#define SI468X_CMD_GET_PROPERTY                         0x14
+#define SI468X_CMD_WRITE_STORAGE                        0x15
+#define SI468X_CMD_READ_STORAGE                         0x16
+#define SI468X_CMD_GET_DIGITAL_SERVICE_LIST             0x80
+#define SI468X_CMD_START_DIGITAL_SERVICE                0x81
+#define SI468X_CMD_STOP_DIGITAL_SERVICE                 0x82
+#define SI468X_CMD_GET_DIGITAL_SERVICE_DATA             0x84
+#define SI468X_CMD_DAB_TUNE_FREQ                        0xB0
+#define SI468X_CMD_DAB_DIGRAD_STATUS                    0xB2
+#define SI468X_CMD_DAB_GET_EVENT_STATUS                 0xB3
+#define SI468X_CMD_DAB_GET_ENSEMBLE_INFO                0xB4
+#define SI468X_CMD_DAB_GET_SERVICE_LINKING_INFO         0xB7
+#define SI468X_CMD_DAB_SET_FREQ_LIST                    0xB8
+#define SI468X_CMD_DAB_GET_FREQ_LIST                    0xB9
+#define SI468X_CMD_DAB_GET_COMPONENT_INFO               0xBB
+#define SI468X_CMD_DAB_GET_TIME                         0xBC
+#define SI468X_CMD_DAB_GET_AUDIO_INFO                   0xBD
+#define SI468X_CMD_DAB_GET_SUBCHAN_INFO                 0xBE
+#define SI468X_CMD_DAB_GET_FREQ_INFO                    0xBF
+#define SI468X_CMD_DAB_GET_SERVICE_INFO                 0xC0
+#define SI468X_CMD_TEST_GET_RSSI                        0xE5
+#define SI468X_CMD_DAB_TEST_GET_BER_INFO                0xE8
 
 // List of properties for DAB mode
-#define INT_CTL_REPEAT								0x0001
-#define DIGITAL_IO_OUTPUT_SELECT                    0x0200
-#define DIGITAL_IO_OUTPUT_SAMPLE_RATE               0x0201
-#define DIGITAL_IO_OUTPUT_FORMAT                    0x0202
-#define DIGITAL_IO_OUTPUT_FORMAT_OVERRIDES_1        0x0203
-#define DIGITAL_IO_OUTPUT_FORMAT_OVERRIDES_2        0x0204
-#define DIGITAL_IO_OUTPUT_FORMAT_OVERRIDES_3        0x0205
-#define DIGITAL_IO_OUTPUT_FORMAT_OVERRIDES_4        0x0206
-#define AUDIO_ANALOG_VOLUME                         0x0300
-#define AUDIO_MUTE                                  0x0301
-#define AUDIO_OUTPUT_CONFIG                         0x0302
-#define PIN_CONFIG_ENABLE                           0x0800
-#define WAKE_TONE_ENABLE                            0x0900
-#define WAKE_TONE_PERIOD                            0x0901
-#define WAKE_TONE_FREQ                              0x0902
-#define WAKE_TONE_AMPLITUDE                         0x0903
-#define DAB_TUNE_FE_VARM                            0x1710
-#define DAB_TUNE_FE_VARB                            0x1711
-#define DAB_TUNE_FE_CFG                             0x1712
-#define DIGITAL_SERVICE_INT_SOURCE                  0x8100
-#define DIGITAL_SERVICE_RESTART_DELAY               0x8101
-#define DAB_DIGRAD_INTERRUPT_SOURCE                 0xB000
-#define DAB_DIGRAD_RSSI_HIGH_THRESHOLD              0xB001
-#define DAB_DIGRAD_RSSI_LOW_THRESHOLD               0xB002
-#define DAB_VALID_RSSI_TIME                         0xB200
-#define DAB_VALID_RSSI_THRESHOLD                    0xB201
-#define DAB_VALID_ACQ_TIME                          0xB202
-#define DAB_VALID_SYNC_TIME                         0xB203
-#define DAB_VALID_DETECT_TIME                       0xB204
-#define DAB_EVENT_INTERRUPT_SOURCE                  0xB300
-#define DAB_EVENT_MIN_SVRLIST_PERIOD                0xB301
-#define DAB_EVENT_MIN_SVRLIST_PERIOD_RECONFIG       0xB302
-#define DAB_EVENT_MIN_FREQINFO_PERIOD               0xB303
-#define DAB_XPAD_ENABLE                             0xB400
-#define DAB_DRC_OPTION                              0xB401
-#define DAB_CTRL_DAB_MUTE_ENABLE                    0xB500
-#define DAB_CTRL_DAB_MUTE_SIGNAL_LEVEL_THRESHOLD    0xB501
-#define DAB_CTRL_DAB_MUTE_WIN_THRESHOLD             0xB502
-#define DAB_CTRL_DAB_UNMUTE_WIN_THRESHOLD           0xB503
-#define DAB_CTRL_DAB_MUTE_SIGLOSS_THRESHOLD         0xB504
-#define DAB_CTRL_DAB_MUTE_SIGLOW_THRESHOLD          0xB505
-#define DAB_TEST_BER_CONFIG                         0xE800
+#define SI468X_PROP_INT_CTL_REPEAT								0x0001
+#define SI468X_PROP_DIGITAL_IO_OUTPUT_SELECT                    0x0200
+#define SI468X_PROP_DIGITAL_IO_OUTPUT_SAMPLE_RATE               0x0201
+#define SI468X_PROP_DIGITAL_IO_OUTPUT_FORMAT                    0x0202
+#define SI468X_PROP_DIGITAL_IO_OUTPUT_FORMAT_OVERRIDES_1        0x0203
+#define SI468X_PROP_DIGITAL_IO_OUTPUT_FORMAT_OVERRIDES_2        0x0204
+#define SI468X_PROP_DIGITAL_IO_OUTPUT_FORMAT_OVERRIDES_3        0x0205
+#define SI468X_PROP_DIGITAL_IO_OUTPUT_FORMAT_OVERRIDES_4        0x0206
+#define SI468X_PROP_AUDIO_ANALOG_VOLUME                         0x0300
+#define SI468X_PROP_AUDIO_MUTE                                  0x0301
+#define SI468X_PROP_AUDIO_OUTPUT_CONFIG                         0x0302
+#define SI468X_PROP_PIN_CONFIG_ENABLE                           0x0800
+#define SI468X_PROP_WAKE_TONE_ENABLE                            0x0900
+#define SI468X_PROP_WAKE_TONE_PERIOD                            0x0901
+#define SI468X_PROP_WAKE_TONE_FREQ                              0x0902
+#define SI468X_PROP_WAKE_TONE_AMPLITUDE                         0x0903
+#define SI468X_PROP_DAB_TUNE_FE_VARM                            0x1710
+#define SI468X_PROP_DAB_TUNE_FE_VARB                            0x1711
+#define SI468X_PROP_DAB_TUNE_FE_CFG                             0x1712
+#define SI468X_PROP_DIGITAL_SERVICE_INT_SOURCE                  0x8100
+#define SI468X_PROP_DIGITAL_SERVICE_RESTART_DELAY               0x8101
+#define SI468X_PROP_DAB_DIGRAD_INTERRUPT_SOURCE                 0xB000
+#define SI468X_PROP_DAB_DIGRAD_RSSI_HIGH_THRESHOLD              0xB001
+#define SI468X_PROP_DAB_DIGRAD_RSSI_LOW_THRESHOLD               0xB002
+#define SI468X_PROP_DAB_VALID_RSSI_TIME                         0xB200
+#define SI468X_PROP_DAB_VALID_RSSI_THRESHOLD                    0xB201
+#define SI468X_PROP_DAB_VALID_ACQ_TIME                          0xB202
+#define SI468X_PROP_DAB_VALID_SYNC_TIME                         0xB203
+#define SI468X_PROP_DAB_VALID_DETECT_TIME                       0xB204
+#define SI468X_PROP_DAB_EVENT_INTERRUPT_SOURCE                  0xB300
+#define SI468X_PROP_DAB_EVENT_MIN_SVRLIST_PERIOD                0xB301
+#define SI468X_PROP_DAB_EVENT_MIN_SVRLIST_PERIOD_RECONFIG       0xB302
+#define SI468X_PROP_DAB_EVENT_MIN_FREQINFO_PERIOD               0xB303
+#define SI468X_PROP_DAB_XPAD_ENABLE                             0xB400
+#define SI468X_PROP_DAB_DRC_OPTION                              0xB401
+#define SI468X_PROP_DAB_CTRL_DAB_MUTE_ENABLE                    0xB500
+#define SI468X_PROP_DAB_CTRL_DAB_MUTE_SIGNAL_LEVEL_THRESHOLD    0xB501
+#define SI468X_PROP_DAB_CTRL_DAB_MUTE_WIN_THRESHOLD             0xB502
+#define SI468X_PROP_DAB_CTRL_DAB_UNMUTE_WIN_THRESHOLD           0xB503
+#define SI468X_PROP_DAB_CTRL_DAB_MUTE_SIGLOSS_THRESHOLD         0xB504
+#define SI468X_PROP_DAB_CTRL_DAB_MUTE_SIGLOW_THRESHOLD          0xB505
+#define SI468X_PROP_DAB_TEST_BER_CONFIG                         0xE800
 
 // Properties
 #define SI468X_XTAL_FREQ						19200000L
@@ -155,6 +172,8 @@ void Si468x_init()
 	MODIFY_REG(GPIOD->OSPEEDR, GPIO_MODER_MODE8_Msk, OSPEEDR_50MHZ << GPIO_MODER_MODE8_Pos);
 	MODIFY_REG(GPIOD->MODER, GPIO_MODER_MODE6_Msk, MODER_INPUT << GPIO_MODER_MODE6_Pos);
 	MODIFY_REG(GPIOD->PUPDR, GPIO_PUPDR_PUPD6_Msk, PUPDR_PULL_UP << GPIO_PUPDR_PUPD6_Pos);
+
+	Si468x_start_dab();
 }
 
 /*
@@ -172,16 +191,17 @@ static int Si468x_send_cmd(uint8_t* data_out, uint32_t data_out_size, uint8_t* d
 	spi_release_Si468x_CS();
 
 	// Uncomment the following block to read the SPI's received data for each command
-	if (data_in != NULL) {
-		int i;
-		for (i=0; i<data_in_size; i++) {
-			debug_msg("  rsp byte %d = 0x%x\n", i, data_in[i]);
-		}
-	}
+//	if (data_in != NULL) {
+//		int i;
+//		for (i=0; i<data_in_size; i++) {
+//			debug_msg("  rsp byte %d = 0x%x\n", i, data_in[i]);
+//		}
+//	}
 }
 
 /********************************************************************************
  * COMMANDS FUNCTIONS
+ * The following commands are explained in Silicon Labs AN 649, rev. 1.9
  ********************************************************************************/
 /*
  *
@@ -215,7 +235,7 @@ static int Si468x_powerup()
 	data_out[15] = 0x00;	// fixed
 
 	Si468x_send_cmd(data_out, 16, NULL, 0);
-	Si468x_wait_for_cts();
+	Si468x_wait_for_cts(POLLING);
 
 	// data_in[3] contains informations about the current device's state
 	if ((data_in[3] & PUP_STATE_mask) != PUP_STATE_BOOTLOADER)
@@ -232,7 +252,7 @@ static int Si468x_load_init()
 
 	Si468x_send_cmd(data_out, 2, NULL, 0);
 
-	Si468x_wait_for_cts();
+	Si468x_wait_for_cts(POLLING);
 }
 
 /*
@@ -259,7 +279,7 @@ static int Si468x_host_load(uint8_t* img_data, uint32_t len)
 		timer_wait_us(1);
 		spi_release_Si468x_CS();
 
-		Si468x_wait_for_cts();
+		Si468x_wait_for_cts(POLLING);
 
 		len -= curr_len;
 		img_data += curr_len;
@@ -276,11 +296,46 @@ static int Si468x_boot()
 
 	Si468x_send_cmd(data_out, 2, NULL, 0);
 
-	Si468x_wait_for_cts();
+	Si468x_wait_for_cts(POLLING);
 
 	// data_in[3] contains informations about the current device's state
 	if ((data_in[3] & PUP_STATE_mask) != PUP_STATE_APPLICATION)
 		debug_msg("boot failure\n");
+}
+
+/*
+ *
+ */
+void Si468x_get_part_info(Si468x_info *info)
+{
+	data_out[0] = SI468X_CMD_GET_PART_INFO;
+	data_out[1] = 0;
+	Si468x_send_cmd(data_out, 2, NULL, 0);
+
+	Si468x_wait_for_cts(POLLING);
+
+	data_out[0] = SI468X_CMD_RD_REPLY;
+	data_out[1] = 0;
+	Si468x_send_cmd(data_out, 2, data_in, 9);
+
+	if(data_in[0] & (STATUS0_CTS | STATUS0_ERRCMD))
+	{
+		/*
+		 * AN649Rev1.9 states that the answer to SI468X_CMD_GET_PART_INFO
+		 * is 10 byte, four for status [STATUS0, X, X, STATUS3] and six
+		 * for the actual answer [CHIPREV, ROMID, X, X, PART[7:0],
+		 * PART[15:8]]. Actually the second status byte (X) seems to be
+		 * missing, so everything is shifted by one byte
+		 */
+
+		info->chiprev 	= data_in[3];
+		info->romid 	= data_in[4];
+		info->part		= ((uint16_t)data_in[8] << 8) | data_in[7];
+
+		debug_msg("Chip rev.: %u\n", info->chiprev);
+		debug_msg("ROM ID: %u\n", info->romid);
+		debug_msg("Part number: %u\n", info->part);
+	}
 }
 
 /*
@@ -311,17 +366,110 @@ static int Si468x_get_sys_state()
 	}
 }
 
+/*
+ *
+ */
+static int Si468x_get_digital_service_list(void)
+{
+	uint32_t i;
+
+	uint8_t digital_service_buffer[2048];
+
+	// Fills data_out buffer with "Get digital service list" and the command argument
+	data_out[0] = SI468X_CMD_GET_DIGITAL_SERVICE_LIST;
+	data_out[1] = 0x00;
+	Si468x_send_cmd(data_out, 2, NULL, 0);
+
+	// Waits for CTS
+	Si468x_wait_for_cts(POLLING);
+
+	// Parses reply from Si4684
+	data_out[0] = SI468X_CMD_RD_REPLY;
+	Si468x_send_cmd(data_out, 1, digital_service_buffer, 2048);
+
+//	for(i=0; i < 2048; i++)
+//	{
+//		debug_printf("%s", digital_service_buffer[i]);
+//	}
+
+	return SI468X_SUCCESS;
+}
+
+/*
+ *
+ */
+static int Si468x_dab_get_freq_list(Si468x_DAB_freq_list *list)
+{
+	data_out[0] = SI468X_CMD_DAB_GET_FREQ_LIST;
+	data_out[1] = 0x00;
+	Si468x_send_cmd(data_out, 2, NULL, 0);
+
+	// Waits for CTS
+	Si468x_wait_for_cts(POLLING);
+
+	data_out[0] = SI468X_CMD_RD_REPLY;
+	Si468x_send_cmd(data_out, 1, data_in, 12);
+
+	if(data_in[0] & (STATUS0_CTS | STATUS0_ERRCMD))
+	{
+		list->num_freqs = data_in[4];
+		list->first_freq = (((uint32_t)data_in[11] << 24) |
+							((uint32_t)data_in[10] << 16) |
+							((uint32_t)data_in[9] << 8) |
+							data_in[8]);
+
+		debug_msg("Number of frequencies: %u\n", list->num_freqs);
+		debug_msg("First available frequency: %u kHz\n", list->first_freq);
+
+		return SI468X_SUCCESS;
+	} else
+		return SI468X_ERROR;
+}
+
+/*
+ *
+ */
+static int Si468x_dab_tune_freq(uint8_t freq, injection_type injection, uint16_t antcap)
+{
+	data_out[0] = SI468X_CMD_DAB_TUNE_FREQ;
+	data_out[1] = injection;
+	data_out[2] = freq;
+	data_out[3] = 0x00;
+	data_out[4] = antcap & 0x00FF;
+	data_out[5] = (antcap & 0xFF00) >> 8;
+	Si468x_send_cmd(data_out, 6, NULL, 0);
+
+	Si468x_wait_for_cts(POLLING);
+
+	data_out[0] = SI468X_CMD_RD_REPLY;
+	data_out[1] = 0x00;
+	Si468x_send_cmd(data_out, 2, data_in, 4);
+
+	if(data_in[0] & (STATUS0_CTS | STATUS0_ERRCMD))
+		return SI468X_SUCCESS;
+	else
+		return SI468X_ERROR;
+
+}
+
 /********************************************************************************
  * ADVANCED FUNCTIONS
  ********************************************************************************/
 /*
  *
  */
-static int Si468x_wait_for_cts()
+void Si468x_wait_for_cts(CTS_type type)
 {
-	do {
-		Si468x_rd_reply(0);
-	} while ((data_in[0] & STATUS0_CTS) == 0);
+	if(type == POLLING)
+	{
+		do {
+			Si468x_rd_reply(0);
+		} while ((data_in[0] & STATUS0_CTS) == 0);
+	}
+	else if(type == INTERRUPT)
+	{
+		while(Si468x_get_int_status());
+	}
 }
 
 /*
@@ -352,21 +500,15 @@ static int Si468x_start_dab()
 	// Boot the image
 	Si468x_boot();
 
-	return SI468X_SUCCESS;
-}
+	timer_wait_us(400000);
 
-int Si468x_get_digital_service_list(void)
-{
-	// Fills data_out buffer with "Get digital service list" and the command argument
-	data_out[0] = SI468X_GET_DIGITAL_SERVICE_LIST;
-	data_out[1] = 0x00;
-	Si468x_send_cmd(data_out, 2, NULL, 0);
+	Si468x_get_part_info(&Si468x_info_part);
 
-	// Waits for CTS
-	Si468x_wait_for_cts();
+	Si468x_dab_get_freq_list(&Si468x_freq_list);
 
-	// Parses reply from Si4684
+	Si468x_dab_tune_freq(28, AUTOMATIC, 0);
 
+	//Si468x_get_digital_service_list();
 
 	return SI468X_SUCCESS;
 }
