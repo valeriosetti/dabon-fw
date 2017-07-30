@@ -485,7 +485,7 @@ static int Si468x_dab_digrad_status(uint8_t digrad_ack, uint8_t attune,
 
 	Si468x_send_cmd(data_out, 2, NULL, 0);
 
-	Si468x_wait_for_stcint(POLLING);
+	Si468x_wait_for_cts(POLLING);
 
 	data_out[0] = SI468X_CMD_RD_REPLY;
 	Si468x_send_cmd(data_out, 1, data_in, 23);
@@ -597,14 +597,14 @@ static int Si468x_start_dab()
 
 	Si468x_dab_get_freq_list(&Si468x_freq_list);
 
-//	for(actual_freq = 0; actual_freq < Si468x_freq_list.num_freqs; actual_freq++)
-//	{
-//		debug_msg("Setting tune frequency to: %u\n", actual_freq);
+	for(actual_freq = 0; actual_freq < Si468x_freq_list.num_freqs; actual_freq++)
+	{
+		debug_msg("Setting tune frequency to: %u\n", actual_freq);
 
 		Si468x_dab_tune_freq(33, AUTOMATIC, 0);
 
 		Si468x_dab_digrad_status(1, 0, 1, &Si468x_DAB_status);
-//	}
+	}
 
 	//Si468x_get_digital_service_list();
 
