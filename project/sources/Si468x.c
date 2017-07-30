@@ -19,7 +19,7 @@
 typedef enum{
 	POLLING 	= 0,
 	INTERRUPT 	= 1
-} CTS_type;
+} Si468x_wait_type;
 
 typedef enum{
 	AUTOMATIC	= 0,
@@ -36,12 +36,16 @@ static int Si468x_host_load(uint8_t* img_data, uint32_t len);
 static int Si468x_boot(void);
 static int Si468x_get_sys_state(void);
 // Private functions for advanced management
-void Si468x_wait_for_cts(CTS_type type);
+void Si468x_wait_for_cts(Si468x_wait_type type);
+void Si468x_wait_for_stcint(Si468x_wait_type type);
 static int Si468x_start_dab(void);
 static int Si468x_get_digital_service_list(void);
 static int Si468x_dab_get_freq_list(Si468x_DAB_freq_list *list);
 void Si468x_get_part_info(Si468x_info *info);
 static int Si468x_dab_tune_freq(uint8_t freq, injection_type injection, uint16_t antcap);
+static int Si468x_dab_digrad_status(uint8_t digrad_ack, uint8_t attune,
+									uint8_t stc_ack, Si468x_DAB_digrad_status *status);
+static int Si468x_dab_set_freq_list(void);
 
 
 // List of commands for DAB mode
@@ -151,8 +155,13 @@ extern uint8_t _binary___external_firmwares_rom00_patch_016_bin_end;
 #define PUP_STATE_mask				0xC0
 #define PUP_STATE_BOOTLOADER		0x80
 #define PUP_STATE_APPLICATION		0xC0
-#define STATUS0_CTS					0x80
+#define STATUS0_STCINT				0x01
+#define STATUS0_DSRVINT				0x10
+#define STATUS0_DACQINT				0x20
 #define STATUS0_ERRCMD				0x40
+#define STATUS0_CTS					0x80
+
+
 
 /********************************************************************************
  * BASIC FUNCTIONS
@@ -315,8 +324,7 @@ void Si468x_get_part_info(Si468x_info *info)
 	Si468x_wait_for_cts(POLLING);
 
 	data_out[0] = SI468X_CMD_RD_REPLY;
-	data_out[1] = 0;
-	Si468x_send_cmd(data_out, 2, data_in, 9);
+	Si468x_send_cmd(data_out, 1, data_in, 9);
 
 	if(data_in[0] & (STATUS0_CTS | STATUS0_ERRCMD))
 	{
@@ -328,9 +336,9 @@ void Si468x_get_part_info(Si468x_info *info)
 		 * missing, so everything is shifted by one byte
 		 */
 
-		info->chiprev 	= data_in[3];
-		info->romid 	= data_in[4];
-		info->part		= ((uint16_t)data_in[8] << 8) | data_in[7];
+		info->chiprev 	= data_in[4];
+		info->romid 	= data_in[5];
+		info->part		= ((uint16_t)data_in[9] << 8) | data_in[8];
 
 		debug_msg("Chip rev.: %u\n", info->chiprev);
 		debug_msg("ROM ID: %u\n", info->romid);
@@ -429,6 +437,24 @@ static int Si468x_dab_get_freq_list(Si468x_DAB_freq_list *list)
 /*
  *
  */
+static int Si468x_dab_set_freq_list(void)
+{
+	data_out[0] = SI468X_CMD_DAB_SET_FREQ_LIST;
+	data_out[1] = 1;
+	data_out[2] = 0;
+	data_out[3] = 0;
+	data_out[4] = 0x20;
+	data_out[5] = 0x78;
+	data_out[6] = 0x03;
+	data_out[7] = 0x00;
+	Si468x_send_cmd(data_out, 8, NULL, 0);
+
+	Si468x_wait_for_cts(POLLING);
+}
+
+/*
+ *
+ */
 static int Si468x_dab_tune_freq(uint8_t freq, injection_type injection, uint16_t antcap)
 {
 	data_out[0] = SI468X_CMD_DAB_TUNE_FREQ;
@@ -439,17 +465,63 @@ static int Si468x_dab_tune_freq(uint8_t freq, injection_type injection, uint16_t
 	data_out[5] = (antcap & 0xFF00) >> 8;
 	Si468x_send_cmd(data_out, 6, NULL, 0);
 
-	Si468x_wait_for_cts(POLLING);
+	Si468x_wait_for_stcint(POLLING);
+
+	return SI468X_SUCCESS;
+}
+
+/*
+ *
+ */
+static int Si468x_dab_digrad_status(uint8_t digrad_ack, uint8_t attune,
+									uint8_t stc_ack, Si468x_DAB_digrad_status *status)
+{
+	data_out[0] = SI468X_CMD_DAB_DIGRAD_STATUS;
+	data_out[1] = 0x01 & stc_ack;
+	if(digrad_ack)
+		data_out[1] |= 0x08;
+	if(attune)
+		data_out[1] |= 0x04;
+
+	Si468x_send_cmd(data_out, 2, NULL, 0);
+
+	Si468x_wait_for_stcint(POLLING);
 
 	data_out[0] = SI468X_CMD_RD_REPLY;
-	data_out[1] = 0x00;
-	Si468x_send_cmd(data_out, 2, data_in, 4);
+	Si468x_send_cmd(data_out, 1, data_in, 23);
 
-	if(data_in[0] & (STATUS0_CTS | STATUS0_ERRCMD))
-		return SI468X_SUCCESS;
-	else
-		return SI468X_ERROR;
+	// Interrupts
+	status->interrupts.rssilint 	= 0x01 & data_in[4];
+	status->interrupts.rssihint 	= 0x02 & data_in[4];
+	status->interrupts.acqint 		= 0x04 & data_in[4];
+	status->interrupts.ficerrint 	= 0x10 & data_in[4];
+	status->interrupts.hardmutedint = 0x20 & data_in[4];
 
+	// States
+	status->states.valid 			= 0x01 & data_in[5];
+	status->states.acq 				= 0x04 & data_in[5];
+	status->states.ficerr 			= 0x10 & data_in[5];
+
+	status->rssi 			= data_in[6];
+	status->snr 			= data_in[7];
+	status->fic_quality 	= data_in[8];
+	status->cnr				= data_in[9];
+	status->FIB_error_count = data_in[10] | (uint16_t)(data_in[11] << 8);
+	status->tune_freq		= 	(uint32_t)data_in[12] |
+								(uint32_t)(data_in[13] << 8) |
+								(uint32_t)(data_in[14] << 16)|
+								(uint32_t)(data_in[15] << 24);
+	status->tune_index		= data_in[16];
+	status->fft_offset		= data_in[17];
+	status->readantcap		= (uint16_t)data_in[18] | (uint16_t)(data_in[19] << 8);
+	status->culevel			= (uint16_t)data_in[20] | (uint16_t)(data_in[21] << 8);
+	status->fastdect		= data_in[22];
+
+	debug_msg("DAB status RSSI: %d \n", status->rssi);
+	debug_msg("DAB status SNR: %d \n", status->snr);
+	debug_msg("DAB status FIC quality: %d \n", status->fic_quality);
+	debug_msg("DAB status tune frequency: %d \n", status->tune_freq);
+	debug_msg("Valid flag: %u\n", status->states.valid);
 }
 
 /********************************************************************************
@@ -458,7 +530,7 @@ static int Si468x_dab_tune_freq(uint8_t freq, injection_type injection, uint16_t
 /*
  *
  */
-void Si468x_wait_for_cts(CTS_type type)
+void Si468x_wait_for_cts(Si468x_wait_type type)
 {
 	if(type == POLLING)
 	{
@@ -475,8 +547,27 @@ void Si468x_wait_for_cts(CTS_type type)
 /*
  *
  */
+void Si468x_wait_for_stcint(Si468x_wait_type type)
+{
+	if(type == POLLING)
+	{
+		do {
+			Si468x_rd_reply(0);
+		} while ((data_in[0] & STATUS0_STCINT) == 0);
+	}
+	else if(type == INTERRUPT)
+	{
+		while(Si468x_get_int_status());
+	}
+}
+
+/*
+ *
+ */
 static int Si468x_start_dab()
 {
+	uint8_t actual_freq;
+
 	// Take the tuner out of reset and wait for 3ms
 	Si468x_deassert_reset();
 	timer_wait_us(3000);
@@ -506,7 +597,14 @@ static int Si468x_start_dab()
 
 	Si468x_dab_get_freq_list(&Si468x_freq_list);
 
-	Si468x_dab_tune_freq(28, AUTOMATIC, 0);
+//	for(actual_freq = 0; actual_freq < Si468x_freq_list.num_freqs; actual_freq++)
+//	{
+//		debug_msg("Setting tune frequency to: %u\n", actual_freq);
+
+		Si468x_dab_tune_freq(33, AUTOMATIC, 0);
+
+		Si468x_dab_digrad_status(1, 0, 1, &Si468x_DAB_status);
+//	}
 
 	//Si468x_get_digital_service_list();
 

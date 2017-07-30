@@ -22,8 +22,37 @@ typedef struct Si468x_DAB_freq_list{
 	uint32_t first_freq;	// First entry of the list
 } Si468x_DAB_freq_list;
 
+typedef struct Si468x_DAB_digrad_status{
+	struct {
+		unsigned rssilint:1;
+		unsigned rssihint:1;
+		unsigned acqint:1;
+		unsigned ficerrint:1;
+		unsigned hardmutedint:1;
+	} interrupts;
+	struct {
+		unsigned valid:1;
+		unsigned acq:1;
+		unsigned ficerr:1;
+		unsigned hardmute:1;
+	} states;
+	int8_t rssi;
+	uint8_t snr;
+	uint8_t fic_quality;
+	uint8_t cnr;
+	uint16_t FIB_error_count;
+	uint32_t tune_freq;
+	uint8_t tune_index;
+	uint8_t tune_offet;
+	uint8_t fft_offset;
+	uint16_t readantcap;
+	uint16_t culevel;
+	uint8_t fastdect;
+} Si468x_DAB_digrad_status;
+
 // Public variables
 Si468x_info Si468x_info_part;
 Si468x_DAB_freq_list Si468x_freq_list;
+Si468x_DAB_digrad_status Si468x_DAB_status;
 
 #endif //_SI468X_H_
