@@ -37,14 +37,14 @@ typedef struct Si468x_DAB_digrad_status{
 		unsigned hardmute:1;
 	} states;
 	int8_t rssi;
-	uint8_t snr;
+	int8_t snr;
 	uint8_t fic_quality;
 	uint8_t cnr;
 	uint16_t FIB_error_count;
 	uint32_t tune_freq;
 	uint8_t tune_index;
 	uint8_t tune_offet;
-	uint8_t fft_offset;
+	int8_t fft_offset;
 	uint16_t readantcap;
 	uint16_t culevel;
 	uint8_t fastdect;

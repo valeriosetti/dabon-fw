@@ -46,6 +46,7 @@ static int Si468x_dab_tune_freq(uint8_t freq, injection_type injection, uint16_t
 static int Si468x_dab_digrad_status(uint8_t digrad_ack, uint8_t attune,
 									uint8_t stc_ack, Si468x_DAB_digrad_status *status);
 static int Si468x_dab_set_freq_list(void);
+static int Si468x_dab_set_property(uint16_t property, uint16_t value);
 
 
 // List of commands for DAB mode
@@ -324,7 +325,7 @@ void Si468x_get_part_info(Si468x_info *info)
 	Si468x_wait_for_cts(POLLING);
 
 	data_out[0] = SI468X_CMD_RD_REPLY;
-	Si468x_send_cmd(data_out, 1, data_in, 9);
+	Si468x_send_cmd(data_out, 1, data_in, 22);
 
 	if(data_in[0] & (STATUS0_CTS | STATUS0_ERRCMD))
 	{
@@ -502,8 +503,8 @@ static int Si468x_dab_digrad_status(uint8_t digrad_ack, uint8_t attune,
 	status->states.acq 				= 0x04 & data_in[5];
 	status->states.ficerr 			= 0x10 & data_in[5];
 
-	status->rssi 			= data_in[6];
-	status->snr 			= data_in[7];
+	status->rssi 			= (int8_t)data_in[6];
+	status->snr 			= (int8_t)data_in[7];
 	status->fic_quality 	= data_in[8];
 	status->cnr				= data_in[9];
 	status->FIB_error_count = data_in[10] | (uint16_t)(data_in[11] << 8);
@@ -512,7 +513,7 @@ static int Si468x_dab_digrad_status(uint8_t digrad_ack, uint8_t attune,
 								(uint32_t)(data_in[14] << 16)|
 								(uint32_t)(data_in[15] << 24);
 	status->tune_index		= data_in[16];
-	status->fft_offset		= data_in[17];
+	status->fft_offset		= (int8_t)data_in[17];
 	status->readantcap		= (uint16_t)data_in[18] | (uint16_t)(data_in[19] << 8);
 	status->culevel			= (uint16_t)data_in[20] | (uint16_t)(data_in[21] << 8);
 	status->fastdect		= data_in[22];
@@ -522,6 +523,52 @@ static int Si468x_dab_digrad_status(uint8_t digrad_ack, uint8_t attune,
 	debug_msg("DAB status FIC quality: %d \n", status->fic_quality);
 	debug_msg("DAB status tune frequency: %d \n", status->tune_freq);
 	debug_msg("Valid flag: %u\n", status->states.valid);
+
+	return SI468X_SUCCESS;
+}
+
+/*
+ *
+ */
+static int Si468x_dab_set_property(uint16_t property, uint16_t value)
+{
+	data_out[0] = SI468X_CMD_SET_PROPERTY;
+	data_out[1] = 0x00;
+	data_out[2] = (uint8_t)(0x00FF & property);
+	data_out[3] = (uint8_t)((0xFF00 & property) >> 8);
+	data_out[4] = (uint8_t)(0x00FF & value);
+	data_out[5] = (uint8_t)((0xFF00 & value) >> 8);
+	Si468x_send_cmd(data_out, 6, NULL, 0);
+
+	Si468x_wait_for_cts(POLLING);
+
+	return SI468X_SUCCESS;
+}
+
+/*
+ *
+ */
+static uint16_t Si468x_dab_get_property(uint16_t property)
+{
+	uint16_t read_value;
+
+	data_out[0] = SI468X_CMD_GET_PROPERTY;
+	data_out[1] = 0x01;
+	data_out[2] = (uint8_t)(0x00FF & property);
+	data_out[3] = (uint8_t)((0xFF00 & property) >> 8);
+	Si468x_send_cmd(data_out, 4, NULL, 0);
+
+	Si468x_wait_for_cts(POLLING);
+
+	data_out[0] = SI468X_CMD_RD_REPLY;
+	Si468x_send_cmd(data_out, 1, data_in, 6);
+
+	read_value = ((uint16_t)data_in[4] | ((uint16_t)(data_in[5]) << 8));
+
+	debug_msg("Property %04x : %04x \n", property, read_value);
+
+	return read_value;
+
 }
 
 /********************************************************************************
@@ -595,13 +642,22 @@ static int Si468x_start_dab()
 
 	Si468x_get_part_info(&Si468x_info_part);
 
+	Si468x_dab_set_property(SI468X_PROP_DAB_TUNE_FE_VARM, 0x0010);
+	Si468x_dab_set_property(SI468X_PROP_DAB_TUNE_FE_VARB, 0x0010);
+
+	Si468x_dab_get_property(SI468X_PROP_DAB_TUNE_FE_VARM);
+	Si468x_dab_get_property(SI468X_PROP_DAB_TUNE_FE_VARB);
+	Si468x_dab_get_property(SI468X_PROP_DAB_TUNE_FE_CFG);
+
 	Si468x_dab_get_freq_list(&Si468x_freq_list);
 
 	for(actual_freq = 0; actual_freq < Si468x_freq_list.num_freqs; actual_freq++)
 	{
 		debug_msg("Setting tune frequency to: %u\n", actual_freq);
 
-		Si468x_dab_tune_freq(33, AUTOMATIC, 0);
+		Si468x_dab_tune_freq(actual_freq, AUTOMATIC, 0);
+
+		timer_wait_us(2000000);
 
 		Si468x_dab_digrad_status(1, 0, 1, &Si468x_DAB_status);
 	}
