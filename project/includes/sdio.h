@@ -1,36 +1,9 @@
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef __SD_CARD_LL_H_
-#define __SD_CARD_LL_H_
+#ifndef __SDIO_H_
+#define __SDIO_H_
 
 #include "stdint.h"
 #include "stm32f407xx.h"
-	
-/** 
-	* Configuration Structure definition  
-	*/
-typedef struct
-{
-	uint32_t ClockEdge;            /*!< Specifies the clock transition on which the bit capture is made.
-										This parameter can be a value of @ref SDMMC_LL_Clock_Edge                 */
-
-	uint32_t ClockBypass;          /*!< Specifies whether the SDMMC Clock divider bypass is
-										enabled or disabled.
-										This parameter can be a value of @ref SDMMC_LL_Clock_Bypass               */
-
-	uint32_t ClockPowerSave;       /*!< Specifies whether SDMMC Clock output is enabled or
-										disabled when the bus is idle.
-										This parameter can be a value of @ref SDMMC_LL_Clock_Power_Save           */
-
-	uint32_t BusWide;              /*!< Specifies the SDMMC bus width.
-										This parameter can be a value of @ref SDMMC_LL_Bus_Wide                   */
-
-	uint32_t HardwareFlowControl;  /*!< Specifies whether the SDMMC hardware flow control is enabled or disabled.
-										This parameter can be a value of @ref SDMMC_LL_Hardware_Flow_Control      */
-
-	uint32_t ClockDiv;             /*!< Specifies the clock frequency of the SDMMC controller.
-										This parameter can be a value between Min_Data = 0 and Max_Data = 255 */  
-	
-}SDIO_InitTypeDef;  
 
 /** 
 	* Command Control structure 
@@ -528,22 +501,22 @@ typedef struct
 /**
 	* Enable the SDIO device
 	*/ 
-#define __SDIO_ENABLE(__INSTANCE__)  (*(volatile uint32_t *)CLKCR_CLKEN_BB = ENABLE)
+#define __SDIO_ENABLE(__INSTANCE__)  (*(volatile uint32_t *)CLKCR_CLKEN_BB = 1U)
 
 /**
 	* Disable the SDIO device
 	*/
-#define __SDIO_DISABLE(__INSTANCE__)  (*(volatile uint32_t *)CLKCR_CLKEN_BB = DISABLE)
+#define __SDIO_DISABLE(__INSTANCE__)  (*(volatile uint32_t *)CLKCR_CLKEN_BB = 0U)
 
 /**
 	* Enable the SDIO DMA transfer
 	*/ 
-#define __SDIO_DMA_ENABLE(__INSTANCE__)  (*(volatile uint32_t *)DCTRL_DMAEN_BB = ENABLE)
+#define __SDIO_DMA_ENABLE(__INSTANCE__)  (*(volatile uint32_t *)DCTRL_DMAEN_BB = 1U)
 
 /**
 	* Disable the SDIO DMA transfer
 	*/
-#define __SDIO_DMA_DISABLE(__INSTANCE__)  (*(volatile uint32_t *)DCTRL_DMAEN_BB = DISABLE)
+#define __SDIO_DMA_DISABLE(__INSTANCE__)  (*(volatile uint32_t *)DCTRL_DMAEN_BB = 0U)
  
 /**
 	* Enable the SDIO device interrupt. 
@@ -770,26 +743,27 @@ typedef struct
 
 
 /* Initialization/de-initialization functions  **********************************/
-uint32_t SDIO_Init(SDIO_TypeDef *SDIOx, SDIO_InitTypeDef Init);
+uint32_t SDIO_Init(SDIO_TypeDef *SDIOx, uint32_t WideMode);
+uint32_t SDIO_HwInit();
 	
 /* I/O operation functions  *****************************************************/
-uint32_t          SDIO_ReadFIFO(SDIO_TypeDef *SDIOx);
+uint32_t SDIO_ReadFIFO(SDIO_TypeDef *SDIOx);
 uint32_t SDIO_WriteFIFO(SDIO_TypeDef *SDIOx, uint32_t *pWriteData);
 	
 /* Peripheral Control functions  ************************************************/
 uint32_t SDIO_PowerState_ON(SDIO_TypeDef *SDIOx);
 uint32_t SDIO_PowerState_OFF(SDIO_TypeDef *SDIOx);
-uint32_t          SDIO_GetPowerState(SDIO_TypeDef *SDIOx);
+uint32_t SDIO_GetPowerState(SDIO_TypeDef *SDIOx);
 
 /* Command path state machine (CPSM) management functions */
 uint32_t SDIO_SendCommand(SDIO_TypeDef *SDIOx, SDIO_CmdInitTypeDef *Command);
-uint8_t           SDIO_GetCommandResponse(SDIO_TypeDef *SDIOx);
-uint32_t          SDIO_GetResponse(SDIO_TypeDef *SDIOx, uint32_t Response);
+uint8_t SDIO_GetCommandResponse(SDIO_TypeDef *SDIOx);
+uint32_t SDIO_GetResponse(SDIO_TypeDef *SDIOx, uint32_t Response);
 
 /* Data path state machine (DPSM) management functions */
 uint32_t SDIO_ConfigData(SDIO_TypeDef *SDIOx, SDIO_DataInitTypeDef* Data);
-uint32_t          SDIO_GetDataCounter(SDIO_TypeDef *SDIOx);
-uint32_t          SDIO_GetFIFOCount(SDIO_TypeDef *SDIOx);
+uint32_t SDIO_GetDataCounter(SDIO_TypeDef *SDIOx);
+uint32_t SDIO_GetFIFOCount(SDIO_TypeDef *SDIOx);
 
 /* SDMMC Cards mode management functions */
 uint32_t SDIO_SetSDMMCReadWaitMode(SDIO_TypeDef *SDIOx, uint32_t SDIO_ReadWaitMode);
@@ -822,4 +796,4 @@ uint32_t SDMMC_CmdSwitch(SDIO_TypeDef *SDIOx, uint32_t Argument);
 uint32_t SDMMC_CmdEraseStartAdd(SDIO_TypeDef *SDIOx, uint32_t StartAdd);
 uint32_t SDMMC_CmdEraseEndAdd(SDIO_TypeDef *SDIOx, uint32_t EndAdd);
 
-#endif /* __SD_CARD_LL_H_ */
+#endif /* __SDIO_H_ */
