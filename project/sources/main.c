@@ -10,6 +10,9 @@
 #include "fsmc.h"
 #include "oled.h"
 #include "sd_card.h"
+#include "sd_card_detect.h"
+#include "ff.h"
+#include "systick.h"
 
 #define debug_msg(...)		debug_printf_with_tag("[Main] ", __VA_ARGS__)
 
@@ -25,7 +28,8 @@ void HW_init()
 	spi_init();
 	output_i2s_init();
 	fsmc_init();
-	sd_card_init();
+	SD_Init();
+	systick_initialize();
 
 	// Peripherals
 	eeprom_init();
@@ -38,7 +42,7 @@ void HW_init()
 /*
  *	System's main function
  */
-int main(void)
+void main()
 {
 	// Configure the main clock
 	ClockConfig_SetMainClockAndPrescalers();
@@ -62,11 +66,15 @@ int main(void)
 	else
 		debug_msg("  Gas-gauge NOT found\n");
 */
+	// FatFs test
+	//FATFS fs;
+	//f_mount(&fs, "\0", 0);
+
 	// Timer
 	uint32_t curr_time = 0;
 	while (1)
 	{
 		timer_wait_us(1000000UL);
-		debug_msg("[%d] card inserted = %d\n", curr_time++, sd_card_is_card_inserted());
+		debug_msg("[%d] card inserted = %d\n", systick_get_tick_count(), sd_card_detect_is_card_inserted());
 	}
 }
