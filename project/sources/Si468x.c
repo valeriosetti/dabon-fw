@@ -24,7 +24,7 @@ typedef enum{
 typedef enum{
 	AUTOMATIC	= 0,
 	LOW_SIDE	= 1,
-	HIGH_SID	= 2
+	HIGH_SIDE	= 2
 } injection_type;
 
 // Private functions for commands
@@ -38,6 +38,8 @@ static int Si468x_get_sys_state(void);
 // Private functions for advanced management
 void Si468x_wait_for_cts(Si468x_wait_type type);
 void Si468x_wait_for_stcint(Si468x_wait_type type);
+
+// DAB
 static int Si468x_start_dab(void);
 static int Si468x_get_digital_service_list(void);
 static int Si468x_dab_get_freq_list(Si468x_DAB_freq_list *list);
@@ -48,6 +50,9 @@ static int Si468x_dab_digrad_status(uint8_t digrad_ack, uint8_t attune,
 static int Si468x_dab_set_freq_list(void);
 static int Si468x_dab_set_property(uint16_t property, uint16_t value);
 
+// FM
+static int Si468x_start_fm(void);
+static int Si468x_fm_tune_freq(uint16_t freq);
 
 // List of commands for DAB mode
 #define SI468X_CMD_RD_REPLY								0x00
@@ -85,7 +90,11 @@ static int Si468x_dab_set_property(uint16_t property, uint16_t value);
 #define SI468X_CMD_TEST_GET_RSSI                        0xE5
 #define SI468X_CMD_DAB_TEST_GET_BER_INFO                0xE8
 
-// List of properties for DAB mode
+// List of command for FM mode
+#define SI468X_CMD_FM_TUNE_FREQ							0x30
+
+
+// List of common properties
 #define SI468X_PROP_INT_CTL_REPEAT								0x0001
 #define SI468X_PROP_DIGITAL_IO_OUTPUT_SELECT                    0x0200
 #define SI468X_PROP_DIGITAL_IO_OUTPUT_SAMPLE_RATE               0x0201
@@ -102,6 +111,8 @@ static int Si468x_dab_set_property(uint16_t property, uint16_t value);
 #define SI468X_PROP_WAKE_TONE_PERIOD                            0x0901
 #define SI468X_PROP_WAKE_TONE_FREQ                              0x0902
 #define SI468X_PROP_WAKE_TONE_AMPLITUDE                         0x0903
+
+// List of properties for DAB mode
 #define SI468X_PROP_DAB_TUNE_FE_VARM                            0x1710
 #define SI468X_PROP_DAB_TUNE_FE_VARB                            0x1711
 #define SI468X_PROP_DAB_TUNE_FE_CFG                             0x1712
@@ -129,10 +140,17 @@ static int Si468x_dab_set_property(uint16_t property, uint16_t value);
 #define SI468X_PROP_DAB_CTRL_DAB_MUTE_SIGLOW_THRESHOLD          0xB505
 #define SI468X_PROP_DAB_TEST_BER_CONFIG                         0xE800
 
+// List of properties for FM mode
+#define SI468X_PROP_FM_TUNE_FE_CFG								0x1712
+#define SI468X_PROP_FM_RDS_CONFIG								0x3C02
+#define SI468X_PROP_FM_AUDIO_DE_EMPHASIS						0x3900
+
+
+
 // Properties
 #define SI468X_XTAL_FREQ						19200000L
 #define SI468X_XTAL_CL							10	// in pF - that's taken from the crystal's datasheet!
-#define SI468X_XTAL_STARTUP_BIAS_CURRENT		800	// in uA
+#define SI468X_XTAL_STARTUP_BIAS_CURRENT		1200	// in uA
 												// See AN649 at section 9.1.5. It was assumed that:
 												// 	- CL=10pF
 												//	- startup ESR = 5 x run ESR = 5 x 70ohm = 350ohm (max)
@@ -178,12 +196,14 @@ void Si468x_init()
 	//	PD6 -> INT (input with pull-up)
 	RCC_GPIOD_CLK_ENABLE();
 	Si468x_assert_reset();
+	timer_wait_us(3000);
 	MODIFY_REG(GPIOD->MODER, GPIO_MODER_MODE8_Msk, MODER_GENERAL_PURPOSE_OUTPUT << GPIO_MODER_MODE8_Pos);
 	MODIFY_REG(GPIOD->OSPEEDR, GPIO_MODER_MODE8_Msk, OSPEEDR_50MHZ << GPIO_MODER_MODE8_Pos);
 	MODIFY_REG(GPIOD->MODER, GPIO_MODER_MODE6_Msk, MODER_INPUT << GPIO_MODER_MODE6_Pos);
 	MODIFY_REG(GPIOD->PUPDR, GPIO_PUPDR_PUPD6_Msk, PUPDR_PULL_UP << GPIO_PUPDR_PUPD6_Pos);
 
 	Si468x_start_dab();
+	//Si468x_start_fm();
 }
 
 /*
@@ -333,8 +353,6 @@ void Si468x_get_part_info(Si468x_info *info)
 		 * AN649Rev1.9 states that the answer to SI468X_CMD_GET_PART_INFO
 		 * is 10 byte, four for status [STATUS0, X, X, STATUS3] and six
 		 * for the actual answer [CHIPREV, ROMID, X, X, PART[7:0],
-		 * PART[15:8]]. Actually the second status byte (X) seems to be
-		 * missing, so everything is shifted by one byte
 		 */
 
 		info->chiprev 	= data_in[4];
@@ -466,6 +484,8 @@ static int Si468x_dab_tune_freq(uint8_t freq, injection_type injection, uint16_t
 	data_out[5] = (antcap & 0xFF00) >> 8;
 	Si468x_send_cmd(data_out, 6, NULL, 0);
 
+	Si468x_wait_for_cts(POLLING);
+
 	Si468x_wait_for_stcint(POLLING);
 
 	return SI468X_SUCCESS;
@@ -492,16 +512,16 @@ static int Si468x_dab_digrad_status(uint8_t digrad_ack, uint8_t attune,
 	Si468x_send_cmd(data_out, 1, data_in, 23);
 
 	// Interrupts
-	status->interrupts.rssilint 	= 0x01 & data_in[4];
-	status->interrupts.rssihint 	= 0x02 & data_in[4];
-	status->interrupts.acqint 		= 0x04 & data_in[4];
-	status->interrupts.ficerrint 	= 0x10 & data_in[4];
-	status->interrupts.hardmutedint = 0x20 & data_in[4];
+	status->interrupts.rssilint 	= (0x01 & data_in[4]) != 0;
+	status->interrupts.rssihint 	= (0x02 & data_in[4]) != 0;
+	status->interrupts.acqint 		= (0x04 & data_in[4]) != 0;
+	status->interrupts.ficerrint 	= (0x10 & data_in[4]) != 0;
+	status->interrupts.hardmutedint = (0x20 & data_in[4]) != 0;
 
 	// States
-	status->states.valid 			= 0x01 & data_in[5];
-	status->states.acq 				= 0x04 & data_in[5];
-	status->states.ficerr 			= 0x10 & data_in[5];
+	status->states.valid 			= (0x01 & data_in[5]) != 0;
+	status->states.acq 				= (0x04 & data_in[5]) != 0;
+	status->states.ficerr 			= (0x10 & data_in[5]) != 0;
 
 	status->rssi 			= (int8_t)data_in[6];
 	status->snr 			= (int8_t)data_in[7];
@@ -642,8 +662,17 @@ static int Si468x_start_dab()
 
 	Si468x_get_part_info(&Si468x_info_part);
 
-	Si468x_dab_set_property(SI468X_PROP_DAB_TUNE_FE_VARM, 0x0010);
-	Si468x_dab_set_property(SI468X_PROP_DAB_TUNE_FE_VARB, 0x0010);
+	Si468x_dab_set_freq_list();
+
+	Si468x_dab_set_property(SI468X_PROP_DAB_CTRL_DAB_MUTE_SIGNAL_LEVEL_THRESHOLD, 0x0000);
+	Si468x_dab_set_property(SI468X_PROP_DAB_CTRL_DAB_MUTE_SIGLOW_THRESHOLD, 0x0000);
+	Si468x_dab_set_property(SI468X_PROP_DAB_CTRL_DAB_MUTE_ENABLE, 0x0000);
+	Si468x_dab_set_property(SI468X_PROP_DAB_DIGRAD_INTERRUPT_SOURCE, 0x0001);
+	Si468x_dab_set_property(SI468X_PROP_DAB_TUNE_FE_CFG, 0x0001);
+	Si468x_dab_set_property(SI468X_PROP_DAB_TUNE_FE_VARM, 10);
+	Si468x_dab_set_property(SI468X_PROP_DAB_TUNE_FE_VARB, 10);
+	Si468x_dab_set_property(SI468X_PROP_PIN_CONFIG_ENABLE, 0x0003);
+	Si468x_dab_set_property(SI468X_PROP_DAB_VALID_DETECT_TIME, 2000);
 
 	Si468x_dab_get_property(SI468X_PROP_DAB_TUNE_FE_VARM);
 	Si468x_dab_get_property(SI468X_PROP_DAB_TUNE_FE_VARB);
@@ -651,13 +680,18 @@ static int Si468x_start_dab()
 
 	Si468x_dab_get_freq_list(&Si468x_freq_list);
 
-	for(actual_freq = 0; actual_freq < Si468x_freq_list.num_freqs; actual_freq++)
+//	for(actual_freq = 33; actual_freq < Si468x_freq_list.num_freqs; actual_freq++)
+//	{
+//		debug_msg("Setting tune frequency to: %u\n", actual_freq);
+//
+//		Si468x_dab_tune_freq(actual_freq, AUTOMATIC, 0);
+//
+//		Si468x_dab_digrad_status(1, 0, 1, &Si468x_DAB_status);
+//	}
+
+	while(1)
 	{
-		debug_msg("Setting tune frequency to: %u\n", actual_freq);
-
-		Si468x_dab_tune_freq(actual_freq, AUTOMATIC, 0);
-
-		timer_wait_us(2000000);
+		Si468x_dab_tune_freq(0, HIGH_SIDE, 0);
 
 		Si468x_dab_digrad_status(1, 0, 1, &Si468x_DAB_status);
 	}
@@ -666,3 +700,82 @@ static int Si468x_start_dab()
 
 	return SI468X_SUCCESS;
 }
+
+/*
+ *
+ */
+/*static int Si468x_start_fm()
+{
+	uint8_t actual_freq;
+
+	// Take the tuner out of reset and wait for 3ms
+	Si468x_deassert_reset();
+	timer_wait_us(3000);
+	// Send power-up and then wait 20us
+	Si468x_powerup();
+	timer_wait_us(20);
+	// Begin firmware loading phase
+	Si468x_load_init();
+	// Send the bootloader image
+	Si468x_host_load(&_binary___external_firmwares_rom00_patch_016_bin_start,
+			sizeof_binary_image(_binary___external_firmwares_rom00_patch_016_bin));
+	// Wait for 4ms
+	timer_wait_us(4000);
+	// Begin firmware loading phase
+	Si468x_load_init();
+	// Send the application image (DAB)
+	Si468x_host_load(&_binary___external_firmwares_fmhd_radio_5_0_4_bin_start,
+			sizeof_binary_image(_binary___external_firmwares_fmhd_radio_5_0_4_bin));
+	// Wait for 4ms
+	timer_wait_us(4000);
+	// Boot the image
+	Si468x_boot();
+
+	timer_wait_us(400000);
+
+	Si468x_get_part_info(&Si468x_info_part);
+
+	Si468x_dab_set_property(SI468X_PROP_PIN_CONFIG_ENABLE, 0x0002);
+	Si468x_dab_set_property(SI468X_PROP_FM_TUNE_FE_CFG, 0x0000);
+	Si468x_dab_set_property(SI468X_PROP_FM_RDS_CONFIG, 0x0001);
+	Si468x_dab_set_property(SI468X_PROP_FM_AUDIO_DE_EMPHASIS, 0x0001);
+
+	Si468x_fm_tune_freq(10420);
+
+	while(1)
+	{
+		// polls the RDS status
+		data_out[0] = 0x34;
+		data_out[1] = 0x00;
+		Si468x_send_cmd(data_out, 2, NULL, 0);
+
+		Si468x_wait_for_cts(POLLING);
+
+		data_out[0] = SI468X_CMD_RD_REPLY;
+		Si468x_send_cmd(data_out, 1, data_in, 20);
+	}
+
+	return SI468X_SUCCESS;
+}*/
+
+/*
+ *
+ */
+static int Si468x_fm_tune_freq(uint16_t freq)
+{
+	data_out[0] = SI468X_CMD_FM_TUNE_FREQ;
+	data_out[1] = 0x00;
+	data_out[2] = (uint8_t)(freq & 0xFF);
+	data_out[3] = (uint8_t)((freq & 0xFF00) >> 8);
+	data_out[4] = 0;
+	data_out[5] = 0;
+	data_out[6] = 0;
+	Si468x_send_cmd(data_out, 7, NULL, 0);
+
+	Si468x_wait_for_cts(POLLING);
+
+	Si468x_wait_for_stcint(POLLING);
+
+	return SI468X_SUCCESS;
+}
+

@@ -28,7 +28,7 @@ void HW_init()
 	sd_card_init();
 
 	// Peripherals
-	eeprom_init();
+	//eeprom_init();
 	Si468x_init();
 	oled_init();
 	debug_msg("Initialization completed\n");
