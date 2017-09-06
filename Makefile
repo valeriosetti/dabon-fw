@@ -3,6 +3,7 @@ include ./add_project.mk
 include ./add_ST.mk
 include ./add_external_firmwares.mk
 include ./add_FatFs.mk
+include ./add_helix.mk
 
 # Binaries will be generated with this name (.elf, .bin, .hex, etc)
 PROJ_NAME = dabon
