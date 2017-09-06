@@ -22,11 +22,10 @@ DSTATUS disk_status (
 	DSTATUS stat;
 	int result;
 
-	//result = MMC_disk_status();
-
-	// translate the reslut code here
-
-	return stat;
+	if (SD_GetCardState() != SD_CARD_ERROR)
+		return RES_OK;
+		
+	return RES_ERROR;
 }
 
 
@@ -48,11 +47,10 @@ DSTATUS disk_initialize (
 }
 
 
-
 /*-----------------------------------------------------------------------*/
 /* Read Sector(s)                                                        */
 /*-----------------------------------------------------------------------*/
-
+#define DISK_READ_TIMEOUT_MS		5000
 DRESULT disk_read (
 	BYTE pdrv,		/* Physical drive nmuber to identify the drive */
 	BYTE *buff,		/* Data buffer to store read data */
@@ -61,16 +59,19 @@ DRESULT disk_read (
 )
 {
 	(void)pdrv;
-	DRESULT res;
-	int result;
+	
+	//if (SD_ReadBlocks_DMA(buff, sector, count) != 0)
+	if (SD_ReadBlocks_DMA(buff, sector, count) != 0)
+		return RES_ERROR;
 
-	// translate the arguments here
-
-	//result = MMC_disk_read(buff, sector, count);
-
-	// translate the reslut code here
-
-	return res;
+	// wait for the read operation to be completed
+	uint32_t start_tick = systick_get_tick_count();
+	while (SD_GetContext() != SD_CONTEXT_NONE) {
+		if ((systick_get_tick_count()-start_tick) > DISK_READ_TIMEOUT_MS)
+			return RES_ERROR;
+	}
+	
+	return RES_OK;
 }
 
 
@@ -112,11 +113,27 @@ DRESULT disk_ioctl (
 )
 {
 	(void)pdrv;
-	DRESULT res;
-	int result;
+	SD_CardInfoTypeDef card_info;
 
-	// Process of the command for the MMC/SD card
+	switch (cmd) {
+		case CTRL_SYNC :
+			return RES_OK;
+			
+		case GET_SECTOR_COUNT:
+			SD_GetCardInfo(&card_info);
+			*(DWORD*)buff = card_info.BlockNbr;
+			return RES_OK;
 
-	return res;
+		case GET_SECTOR_SIZE :
+			*(WORD*)buff = BLOCKSIZE;
+			return RES_OK;
+
+		case GET_BLOCK_SIZE :
+			*(DWORD*)buff = BLOCKSIZE;
+			return RES_OK;
+
+		default:
+			return RES_PARERR;
+	}
 }
 

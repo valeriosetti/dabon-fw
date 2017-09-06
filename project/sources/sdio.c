@@ -4,6 +4,10 @@
 #include "gpio.h"
 #include "clock_configuration.h"
 #include "debug_printf.h"
+#include "core_cm4.h"
+#include "systick.h"
+
+#define debug_msg(...)		debug_printf_with_tag("[SDIO] ", __VA_ARGS__)
 
 static uint32_t SDMMC_GetCmdError(SDIO_TypeDef *SDIOx);
 static uint32_t SDMMC_GetCmdResp1(SDIO_TypeDef *SDIOx, uint8_t SD_CMD, uint32_t Timeout);
@@ -17,13 +21,19 @@ uint32_t SystemCoreClock;
 /**
  * Initializes the SDMMC according to the specified
  */
-uint32_t SDIO_Init(SDIO_TypeDef *SDIOx, uint32_t WideMode)
+uint32_t SDIO_Init(SDIO_TypeDef *SDIOx, uint32_t WideMode, uint32_t clk_div)
 {
-	uint32_t tmpreg = 	SDIO_CLOCK_EDGE_RISING | SDIO_CLOCK_BYPASS_DISABLE | SDIO_CLOCK_POWER_SAVE_DISABLE |
-						WideMode | SDIO_HARDWARE_FLOW_CONTROL_DISABLE | SDIO_INIT_CLK_DIV;
+	RCC_SDIO_CLK_ENABLE();
 	
+	uint32_t tmpreg = 	SDIO_CLOCK_EDGE_RISING | SDIO_CLOCK_BYPASS_DISABLE | SDIO_CLOCK_POWER_SAVE_DISABLE |
+						WideMode | SDIO_HARDWARE_FLOW_CONTROL_DISABLE | clk_div;
+
 	/* Write to SDMMC CLKCR */
 	MODIFY_REG(SDIOx->CLKCR, CLKCR_CLEAR_MASK, tmpreg);  
+	
+	NVIC_SetPriority(SDIO_IRQn, 0x05);
+	NVIC_EnableIRQ(SDIO_IRQn);
+	// NOTE: the ISR() is in the "sd_card" module
 
 	return 0;
 }
@@ -67,40 +77,25 @@ uint32_t SDIO_HwInit()
 	MODIFY_REG(GPIOD->OSPEEDR, GPIO_OSPEEDR_OSPEED2_Msk, OSPEEDR_50MHZ << GPIO_OSPEEDR_OSPEED2_Pos);
 	MODIFY_REG(GPIOD->AFR[0], GPIO_AFRL_AFSEL2_Msk, (12UL << GPIO_AFRL_AFSEL2_Pos));
 	
-	// Enable SDIO's and DMAs' clocks
-	RCC_SDIO_CLK_ENABLE();
-	RCC_DMA2_CLK_ENABLE();
-
-	// Configure DMAs
-	//	- TX => DMA2, channel 4, stream 6
+	// Configure Rx's DMA
 	//	- RX => DMA2, channel 4, stream 3
-	/* Configure DMA Rx parameters
-	  dmaRxHandle.Init.Channel             = SD_DMAx_Rx_CHANNEL;
-	  dmaRxHandle.Init.Direction           = DMA_PERIPH_TO_MEMORY;
-	  dmaRxHandle.Init.PeriphInc           = DMA_PINC_DISABLE;
-	  dmaRxHandle.Init.MemInc              = DMA_MINC_ENABLE;
-	  dmaRxHandle.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
-	  dmaRxHandle.Init.MemDataAlignment    = DMA_MDATAALIGN_WORD;
-	  dmaRxHandle.Init.Mode                = DMA_PFCTRL;
-	  dmaRxHandle.Init.Priority            = DMA_PRIORITY_VERY_HIGH;
-	  dmaRxHandle.Init.FIFOMode            = DMA_FIFOMODE_ENABLE;
-	  dmaRxHandle.Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
-	  dmaRxHandle.Init.MemBurst            = DMA_MBURST_INC4;
-	  dmaRxHandle.Init.PeriphBurst         = DMA_PBURST_INC4;*/
-
-	/* Configure DMA Tx parameters
-	  dmaTxHandle.Init.Channel             = SD_DMAx_Tx_CHANNEL;
-	  dmaTxHandle.Init.Direction           = DMA_MEMORY_TO_PERIPH;
-	  dmaTxHandle.Init.PeriphInc           = DMA_PINC_DISABLE;
-	  dmaTxHandle.Init.MemInc              = DMA_MINC_ENABLE;
-	  dmaTxHandle.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
-	  dmaTxHandle.Init.MemDataAlignment    = DMA_MDATAALIGN_WORD;
-	  dmaTxHandle.Init.Mode                = DMA_PFCTRL;
-	  dmaTxHandle.Init.Priority            = DMA_PRIORITY_VERY_HIGH;
-	  dmaTxHandle.Init.FIFOMode            = DMA_FIFOMODE_ENABLE;
-	  dmaTxHandle.Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
-	  dmaTxHandle.Init.MemBurst            = DMA_MBURST_INC4;
-	  dmaTxHandle.Init.PeriphBurst         = DMA_PBURST_INC4;*/
+	RCC_DMA2_CLK_ENABLE();
+	CLEAR_BIT(DMA2_Stream3->CR, DMA_SxCR_EN);	// Disable the DMA before changing its parameters
+	
+	MODIFY_REG(DMA2_Stream3->CR, DMA_SxCR_CHSEL_Msk, 4UL << DMA_SxCR_CHSEL_Pos);
+	MODIFY_REG(DMA2_Stream3->CR, DMA_SxCR_DIR_Msk, 0UL << DMA_SxCR_DIR_Pos);
+	SET_BIT(DMA2_Stream3->CR, DMA_SxCR_MINC);
+	MODIFY_REG(DMA2_Stream3->CR, DMA_SxCR_MSIZE_Msk, 2UL << DMA_SxCR_MSIZE_Pos);
+	MODIFY_REG(DMA2_Stream3->CR, DMA_SxCR_PSIZE_Msk, 2UL << DMA_SxCR_PSIZE_Pos);
+	SET_BIT(DMA2_Stream3->CR, DMA_SxCR_PFCTRL);
+	MODIFY_REG(DMA2_Stream3->CR, DMA_SxCR_PL_Msk, 3UL << DMA_SxCR_PL_Pos);
+	MODIFY_REG(DMA2_Stream3->FCR, DMA_SxFCR_FTH_Msk, 3UL << DMA_SxFCR_FTH_Pos);
+	SET_BIT(DMA2_Stream3->FCR, DMA_SxFCR_DMDIS);
+	MODIFY_REG(DMA2_Stream3->CR, DMA_SxCR_MBURST_Msk, 1UL << DMA_SxCR_MBURST_Pos);
+	MODIFY_REG(DMA2_Stream3->CR, DMA_SxCR_PBURST_Msk, 1UL << DMA_SxCR_PBURST_Pos);
+	
+	NVIC_SetPriority(DMA2_Stream3_IRQn, 0x06);
+	NVIC_EnableIRQ(DMA2_Stream3_IRQn);
 	  
 	return 0;
 }
@@ -275,6 +270,10 @@ uint32_t SDMMC_CmdBlockLength(SDIO_TypeDef *SDIOx, uint32_t BlockSize)
 	
 	/* Check for error conditions */
 	errorstate = SDMMC_GetCmdResp1(SDIOx, SDMMC_CMD_SET_BLOCKLEN, SDIO_CMDTIMEOUT);
+	
+	if (errorstate != SDMMC_ERROR_NONE) {
+		debug_msg("Error in: %s\n", __func__);
+	}
 
 	return errorstate;
 }
@@ -298,6 +297,10 @@ uint32_t SDMMC_CmdReadSingleBlock(SDIO_TypeDef *SDIOx, uint32_t ReadAdd)
 	/* Check for error conditions */
 	errorstate = SDMMC_GetCmdResp1(SDIOx, SDMMC_CMD_READ_SINGLE_BLOCK, SDIO_CMDTIMEOUT);
 
+	if (errorstate != SDMMC_ERROR_NONE) {
+		debug_msg("Error in: %s\n", __func__);
+	}
+
 	return errorstate;
 }
 
@@ -319,6 +322,10 @@ uint32_t SDMMC_CmdReadMultiBlock(SDIO_TypeDef *SDIOx, uint32_t ReadAdd)
 	
 	/* Check for error conditions */
 	errorstate = SDMMC_GetCmdResp1(SDIOx, SDMMC_CMD_READ_MULT_BLOCK, SDIO_CMDTIMEOUT);
+
+	if (errorstate != SDMMC_ERROR_NONE) {
+		debug_msg("Error in: %s\n", __func__);
+	}
 
 	return errorstate;
 }
@@ -342,6 +349,10 @@ uint32_t SDMMC_CmdWriteSingleBlock(SDIO_TypeDef *SDIOx, uint32_t WriteAdd)
 	/* Check for error conditions */
 	errorstate = SDMMC_GetCmdResp1(SDIOx, SDMMC_CMD_WRITE_SINGLE_BLOCK, SDIO_CMDTIMEOUT);
 
+	if (errorstate != SDMMC_ERROR_NONE) {
+		debug_msg("Error in: %s\n", __func__);
+	}
+
 	return errorstate;
 }
 
@@ -364,6 +375,10 @@ uint32_t SDMMC_CmdWriteMultiBlock(SDIO_TypeDef *SDIOx, uint32_t WriteAdd)
 	/* Check for error conditions */
 	errorstate = SDMMC_GetCmdResp1(SDIOx, SDMMC_CMD_WRITE_MULT_BLOCK, SDIO_CMDTIMEOUT);
 
+	if (errorstate != SDMMC_ERROR_NONE) {
+		debug_msg("Error in: %s\n", __func__);
+	}
+	
 	return errorstate;
 }
 
@@ -386,6 +401,10 @@ uint32_t SDMMC_CmdSDEraseStartAdd(SDIO_TypeDef *SDIOx, uint32_t StartAdd)
 	/* Check for error conditions */
 	errorstate = SDMMC_GetCmdResp1(SDIOx, SDMMC_CMD_SD_ERASE_GRP_START, SDIO_CMDTIMEOUT);
 
+	if (errorstate != SDMMC_ERROR_NONE) {
+		debug_msg("Error in: %s\n", __func__);
+	}
+	
 	return errorstate;
 }
 
@@ -408,6 +427,10 @@ uint32_t SDMMC_CmdSDEraseEndAdd(SDIO_TypeDef *SDIOx, uint32_t EndAdd)
 	/* Check for error conditions */
 	errorstate = SDMMC_GetCmdResp1(SDIOx, SDMMC_CMD_SD_ERASE_GRP_END, SDIO_CMDTIMEOUT);
 
+	if (errorstate != SDMMC_ERROR_NONE) {
+		debug_msg("Error in: %s\n", __func__);
+	}
+	
 	return errorstate;
 }
 
@@ -430,6 +453,10 @@ uint32_t SDMMC_CmdEraseStartAdd(SDIO_TypeDef *SDIOx, uint32_t StartAdd)
 	/* Check for error conditions */
 	errorstate = SDMMC_GetCmdResp1(SDIOx, SDMMC_CMD_ERASE_GRP_START, SDIO_CMDTIMEOUT);
 
+	if (errorstate != SDMMC_ERROR_NONE) {
+		debug_msg("Error in: %s\n", __func__);
+	}
+	
 	return errorstate;
 }
 
@@ -452,6 +479,10 @@ uint32_t SDMMC_CmdEraseEndAdd(SDIO_TypeDef *SDIOx, uint32_t EndAdd)
 	/* Check for error conditions */
 	errorstate = SDMMC_GetCmdResp1(SDIOx, SDMMC_CMD_ERASE_GRP_END, SDIO_CMDTIMEOUT);
 
+	if (errorstate != SDMMC_ERROR_NONE) {
+		debug_msg("Error in: %s\n", __func__);
+	}
+	
 	return errorstate;
 }
 
@@ -474,6 +505,10 @@ uint32_t SDMMC_CmdErase(SDIO_TypeDef *SDIOx)
 	/* Check for error conditions */
 	errorstate = SDMMC_GetCmdResp1(SDIOx, SDMMC_CMD_ERASE, SDIO_MAXERASETIMEOUT);
 
+	if (errorstate != SDMMC_ERROR_NONE) {
+		debug_msg("Error in: %s\n", __func__);
+	}
+	
 	return errorstate;
 }
 
@@ -496,6 +531,10 @@ uint32_t SDMMC_CmdStopTransfer(SDIO_TypeDef *SDIOx)
 	/* Check for error conditions */
 	errorstate = SDMMC_GetCmdResp1(SDIOx, SDMMC_CMD_STOP_TRANSMISSION, 100000000U);
 
+	if (errorstate != SDMMC_ERROR_NONE) {
+		debug_msg("Error in: %s\n", __func__);
+	}
+	
 	return errorstate;
 }
 
@@ -518,6 +557,10 @@ uint32_t SDMMC_CmdSelDesel(SDIO_TypeDef *SDIOx, uint64_t Addr)
 	/* Check for error conditions */
 	errorstate = SDMMC_GetCmdResp1(SDIOx, SDMMC_CMD_SEL_DESEL_CARD, SDIO_CMDTIMEOUT);
 
+	if (errorstate != SDMMC_ERROR_NONE) {
+		debug_msg("Error in: %s\n", __func__);
+	}
+	
 	return errorstate;
 }
 
@@ -539,6 +582,10 @@ uint32_t SDMMC_CmdGoIdleState(SDIO_TypeDef *SDIOx)
 	/* Check for error conditions */
 	errorstate = SDMMC_GetCmdError(SDIOx);
 
+	if (errorstate != SDMMC_ERROR_NONE) {
+		debug_msg("Error in: %s\n", __func__);
+	}
+	
 	return errorstate;
 }
 
@@ -565,6 +612,10 @@ uint32_t SDMMC_CmdOperCond(SDIO_TypeDef *SDIOx)
 	/* Check for error conditions */
 	errorstate = SDMMC_GetCmdResp7(SDIOx);
 
+	if (errorstate != SDMMC_ERROR_NONE) {
+		debug_msg("Error in: %s\n", __func__);
+	}
+	
 	return errorstate;
 }
 
@@ -591,6 +642,10 @@ uint32_t SDMMC_CmdAppCommand(SDIO_TypeDef *SDIOx, uint32_t Argument)
 		 or SD card 1.x */
 	errorstate = SDMMC_GetCmdResp1(SDIOx, SDMMC_CMD_APP_CMD, SDIO_CMDTIMEOUT);
 
+	if (errorstate != SDMMC_ERROR_NONE) {
+		debug_msg("Error in: %s\n", __func__);
+	}
+	
 	return errorstate;
 }
 
@@ -613,6 +668,10 @@ uint32_t SDMMC_CmdAppOperCommand(SDIO_TypeDef *SDIOx, uint32_t SdType)
 	/* Check for error conditions */
 	errorstate = SDMMC_GetCmdResp3(SDIOx);
 
+	if (errorstate != SDMMC_ERROR_NONE) {
+		debug_msg("Error in: %s\n", __func__);
+	}
+	
 	return errorstate;
 }
 
@@ -634,6 +693,10 @@ uint32_t SDMMC_CmdBusWidth(SDIO_TypeDef *SDIOx, uint32_t BusWidth)
 	/* Check for error conditions */
 	errorstate = SDMMC_GetCmdResp1(SDIOx, SDMMC_CMD_APP_SD_SET_BUSWIDTH, SDIO_CMDTIMEOUT);
 
+	if (errorstate != SDMMC_ERROR_NONE) {
+		debug_msg("Error in: %s\n", __func__);
+	}
+	
 	return errorstate;
 }
 
@@ -656,6 +719,10 @@ uint32_t SDMMC_CmdSendSCR(SDIO_TypeDef *SDIOx)
 	/* Check for error conditions */
 	errorstate = SDMMC_GetCmdResp1(SDIOx, SDMMC_CMD_SD_APP_SEND_SCR, SDIO_CMDTIMEOUT);
 
+	if (errorstate != SDMMC_ERROR_NONE) {
+		debug_msg("Error in: %s\n", __func__);
+	}
+	
 	return errorstate;
 }
 
@@ -678,6 +745,10 @@ uint32_t SDMMC_CmdSendCID(SDIO_TypeDef *SDIOx)
 	/* Check for error conditions */
 	errorstate = SDMMC_GetCmdResp2(SDIOx);
 
+	if (errorstate != SDMMC_ERROR_NONE) {
+		debug_msg("Error in: %s\n", __func__);
+	}
+	
 	return errorstate;
 }
 
@@ -700,6 +771,10 @@ uint32_t SDMMC_CmdSendCSD(SDIO_TypeDef *SDIOx, uint32_t Argument)
 	/* Check for error conditions */
 	errorstate = SDMMC_GetCmdResp2(SDIOx);
 
+	if (errorstate != SDMMC_ERROR_NONE) {
+		debug_msg("Error in: %s\n", __func__);
+	}
+	
 	return errorstate;
 }
 
@@ -722,6 +797,10 @@ uint32_t SDMMC_CmdSetRelAdd(SDIO_TypeDef *SDIOx, uint16_t *pRCA)
 	/* Check for error conditions */
 	errorstate = SDMMC_GetCmdResp6(SDIOx, SDMMC_CMD_SET_REL_ADDR, pRCA);
 
+	if (errorstate != SDMMC_ERROR_NONE) {
+		debug_msg("Error in: %s\n", __func__);
+	}
+	
 	return errorstate;
 }
 
@@ -743,6 +822,10 @@ uint32_t SDMMC_CmdSendStatus(SDIO_TypeDef *SDIOx, uint32_t Argument)
 	/* Check for error conditions */
 	errorstate = SDMMC_GetCmdResp1(SDIOx, SDMMC_CMD_SEND_STATUS, SDIO_CMDTIMEOUT);
 
+	if (errorstate != SDMMC_ERROR_NONE) {
+		debug_msg("Error in: %s\n", __func__);
+	}
+	
 	return errorstate;
 }
 
@@ -764,6 +847,10 @@ uint32_t SDMMC_CmdStatusRegister(SDIO_TypeDef *SDIOx)
 	/* Check for error conditions */
 	errorstate = SDMMC_GetCmdResp1(SDIOx, SDMMC_CMD_SD_APP_STATUS, SDIO_CMDTIMEOUT);
 
+	if (errorstate != SDMMC_ERROR_NONE) {
+		debug_msg("Error in: %s\n", __func__);
+	}
+	
 	return errorstate;
 }
 
@@ -786,6 +873,10 @@ uint32_t SDMMC_CmdOpCondition(SDIO_TypeDef *SDIOx, uint32_t Argument)
 	/* Check for error conditions */
 	errorstate = SDMMC_GetCmdResp3(SDIOx);
 
+	if (errorstate != SDMMC_ERROR_NONE) {
+		debug_msg("Error in: %s\n", __func__);
+	}
+	
 	return errorstate;
 }
 
@@ -807,6 +898,10 @@ uint32_t SDMMC_CmdSwitch(SDIO_TypeDef *SDIOx, uint32_t Argument)
 	/* Check for error conditions */
 	errorstate = SDMMC_GetCmdResp1(SDIOx, SDMMC_CMD_HS_SWITCH, SDIO_CMDTIMEOUT);
 
+	if (errorstate != SDMMC_ERROR_NONE) {
+		debug_msg("Error in: %s\n", __func__);
+	}
+	
 	return errorstate;
 }
 
@@ -816,17 +911,12 @@ uint32_t SDMMC_CmdSwitch(SDIO_TypeDef *SDIOx, uint32_t Argument)
  */
 static uint32_t SDMMC_GetCmdError(SDIO_TypeDef *SDIOx)
 {
-	/* 8 is the number of required instructions cycles for the below loop statement.
-	The SDMMC_CMDTIMEOUT is expressed in ms */
-	register uint32_t count = SDIO_CMDTIMEOUT * (SystemCoreClock / 8U /1000U);
-	
-	do
-	{
-		if (count-- == 0U)
-		{
+	uint32_t start_tick = systick_get_tick_count();
+	do {
+		if ((systick_get_tick_count() - start_tick) > SDIO_CMDTIMEOUT) {
+			debug_msg("Error: SDMMC_ERROR_TIMEOUT in %s\n", __func__);
 			return SDMMC_ERROR_TIMEOUT;
 		}
-		
 	}while(!__SDIO_GET_FLAG(SDIOx, SDIO_FLAG_CMDSENT));
 	
 	/* Clear all the static flags */
@@ -841,36 +931,31 @@ static uint32_t SDMMC_GetCmdError(SDIO_TypeDef *SDIOx)
 static uint32_t SDMMC_GetCmdResp1(SDIO_TypeDef *SDIOx, uint8_t SD_CMD, uint32_t Timeout)
 {
 	uint32_t response_r1;
-	
-	/* 8 is the number of required instructions cycles for the below loop statement.
-	The Timeout is expressed in ms */
-	register uint32_t count = Timeout * (SystemCoreClock / 8U /1000U);
-	
-	do
-	{
-		if (count-- == 0U)
-		{
+	uint32_t start_tick = systick_get_tick_count();
+	do {
+		if ((systick_get_tick_count() - start_tick) > Timeout) {
+			debug_msg("Error: SDMMC_ERROR_TIMEOUT in %s\n", __func__);
 			return SDMMC_ERROR_TIMEOUT;
 		}
-		
 	}while(!__SDIO_GET_FLAG(SDIOx, SDIO_FLAG_CCRCFAIL | SDIO_FLAG_CMDREND | SDIO_FLAG_CTIMEOUT));
 	
 	if(__SDIO_GET_FLAG(SDIOx, SDIO_FLAG_CTIMEOUT))
 	{
 		__SDIO_CLEAR_FLAG(SDIOx, SDIO_FLAG_CTIMEOUT);
-		
+		debug_msg("Error: SDMMC_ERROR_CMD_RSP_TIMEOUT in %s\n", __func__);
 		return SDMMC_ERROR_CMD_RSP_TIMEOUT;
 	}
 	else if(__SDIO_GET_FLAG(SDIOx, SDIO_FLAG_CCRCFAIL))
 	{
 		__SDIO_CLEAR_FLAG(SDIOx, SDIO_FLAG_CCRCFAIL);
-		
+		debug_msg("Error: SDMMC_ERROR_CMD_CRC_FAIL in %s\n", __func__);
 		return SDMMC_ERROR_CMD_CRC_FAIL;
 	}
 	
 	/* Check response received is of desired command */
 	if(SDIO_GetCommandResponse(SDIOx) != SD_CMD)
 	{
+		debug_msg("Error: SDMMC_ERROR_CMD_CRC_FAIL in %s\n", __func__);
 		return SDMMC_ERROR_CMD_CRC_FAIL;
 	}
 	
@@ -886,78 +971,97 @@ static uint32_t SDMMC_GetCmdResp1(SDIO_TypeDef *SDIOx, uint8_t SD_CMD, uint32_t 
 	}
 	else if((response_r1 & SDMMC_OCR_ADDR_OUT_OF_RANGE) == SDMMC_OCR_ADDR_OUT_OF_RANGE)
 	{
+		debug_msg("Error: SDMMC_ERROR_ADDR_OUT_OF_RANGE in %s\n", __func__);
 		return SDMMC_ERROR_ADDR_OUT_OF_RANGE;
 	}
 	else if((response_r1 & SDMMC_OCR_ADDR_MISALIGNED) == SDMMC_OCR_ADDR_MISALIGNED)
 	{
+		debug_msg("Error: SDMMC_ERROR_ADDR_MISALIGNED in %s\n", __func__);
 		return SDMMC_ERROR_ADDR_MISALIGNED;
 	}
 	else if((response_r1 & SDMMC_OCR_BLOCK_LEN_ERR) == SDMMC_OCR_BLOCK_LEN_ERR)
 	{
+		debug_msg("Error: SDMMC_ERROR_BLOCK_LEN_ERR in %s\n", __func__);
 		return SDMMC_ERROR_BLOCK_LEN_ERR;
 	}
 	else if((response_r1 & SDMMC_OCR_ERASE_SEQ_ERR) == SDMMC_OCR_ERASE_SEQ_ERR)
 	{
+		debug_msg("Error: SDMMC_ERROR_ERASE_SEQ_ERR in %s\n", __func__);
 		return SDMMC_ERROR_ERASE_SEQ_ERR;
 	}
 	else if((response_r1 & SDMMC_OCR_BAD_ERASE_PARAM) == SDMMC_OCR_BAD_ERASE_PARAM)
 	{
+		debug_msg("Error: SDMMC_ERROR_BAD_ERASE_PARAM in %s\n", __func__);
 		return SDMMC_ERROR_BAD_ERASE_PARAM;
 	}
 	else if((response_r1 & SDMMC_OCR_WRITE_PROT_VIOLATION) == SDMMC_OCR_WRITE_PROT_VIOLATION)
 	{
+		debug_msg("Error: SDMMC_ERROR_WRITE_PROT_VIOLATION in %s\n", __func__);
 		return SDMMC_ERROR_WRITE_PROT_VIOLATION;
 	}
 	else if((response_r1 & SDMMC_OCR_LOCK_UNLOCK_FAILED) == SDMMC_OCR_LOCK_UNLOCK_FAILED)
 	{
+		debug_msg("Error: SDMMC_ERROR_LOCK_UNLOCK_FAILED in %s\n", __func__);
 		return SDMMC_ERROR_LOCK_UNLOCK_FAILED;
 	}
 	else if((response_r1 & SDMMC_OCR_COM_CRC_FAILED) == SDMMC_OCR_COM_CRC_FAILED)
 	{
+		debug_msg("Error: SDMMC_ERROR_COM_CRC_FAILED in %s\n", __func__);
 		return SDMMC_ERROR_COM_CRC_FAILED;
 	}
 	else if((response_r1 & SDMMC_OCR_ILLEGAL_CMD) == SDMMC_OCR_ILLEGAL_CMD)
 	{
+		debug_msg("Error: SDMMC_ERROR_ILLEGAL_CMD in %s\n", __func__);
 		return SDMMC_ERROR_ILLEGAL_CMD;
 	}
 	else if((response_r1 & SDMMC_OCR_CARD_ECC_FAILED) == SDMMC_OCR_CARD_ECC_FAILED)
 	{
+		debug_msg("Error: SDMMC_ERROR_CARD_ECC_FAILED in %s\n", __func__);
 		return SDMMC_ERROR_CARD_ECC_FAILED;
 	}
 	else if((response_r1 & SDMMC_OCR_CC_ERROR) == SDMMC_OCR_CC_ERROR)
 	{
+		debug_msg("Error: SDMMC_ERROR_CC_ERR in %s\n", __func__);
 		return SDMMC_ERROR_CC_ERR;
 	}
 	else if((response_r1 & SDMMC_OCR_STREAM_READ_UNDERRUN) == SDMMC_OCR_STREAM_READ_UNDERRUN)
 	{
+		debug_msg("Error: SDMMC_ERROR_STREAM_READ_UNDERRUN in %s\n", __func__);
 		return SDMMC_ERROR_STREAM_READ_UNDERRUN;
 	}
 	else if((response_r1 & SDMMC_OCR_STREAM_WRITE_OVERRUN) == SDMMC_OCR_STREAM_WRITE_OVERRUN)
 	{
+		debug_msg("Error: SDMMC_ERROR_STREAM_WRITE_OVERRUN in %s\n", __func__);
 		return SDMMC_ERROR_STREAM_WRITE_OVERRUN;
 	}
 	else if((response_r1 & SDMMC_OCR_CID_CSD_OVERWRITE) == SDMMC_OCR_CID_CSD_OVERWRITE)
 	{
+		debug_msg("Error: SDMMC_ERROR_CID_CSD_OVERWRITE in %s\n", __func__);
 		return SDMMC_ERROR_CID_CSD_OVERWRITE;
 	}
 	else if((response_r1 & SDMMC_OCR_WP_ERASE_SKIP) == SDMMC_OCR_WP_ERASE_SKIP)
 	{
+		debug_msg("Error: SDMMC_ERROR_WP_ERASE_SKIP in %s\n", __func__);
 		return SDMMC_ERROR_WP_ERASE_SKIP;
 	}
 	else if((response_r1 & SDMMC_OCR_CARD_ECC_DISABLED) == SDMMC_OCR_CARD_ECC_DISABLED)
 	{
+		debug_msg("Error: SDMMC_ERROR_CARD_ECC_DISABLED in %s\n", __func__);
 		return SDMMC_ERROR_CARD_ECC_DISABLED;
 	}
 	else if((response_r1 & SDMMC_OCR_ERASE_RESET) == SDMMC_OCR_ERASE_RESET)
 	{
+		debug_msg("Error: SDMMC_ERROR_ERASE_RESET in %s\n", __func__);
 		return SDMMC_ERROR_ERASE_RESET;
 	}
 	else if((response_r1 & SDMMC_OCR_AKE_SEQ_ERROR) == SDMMC_OCR_AKE_SEQ_ERROR)
 	{
+		debug_msg("Error: SDMMC_ERROR_AKE_SEQ_ERR in %s\n", __func__);
 		return SDMMC_ERROR_AKE_SEQ_ERR;
 	}
 	else
 	{
+		debug_msg("Error: SDMMC_ERROR_GENERAL_UNKNOWN_ERR in %s\n", __func__);
 		return SDMMC_ERROR_GENERAL_UNKNOWN_ERR;
 	}
 }
@@ -967,29 +1071,24 @@ static uint32_t SDMMC_GetCmdResp1(SDIO_TypeDef *SDIOx, uint8_t SD_CMD, uint32_t 
  */
 static uint32_t SDMMC_GetCmdResp2(SDIO_TypeDef *SDIOx)
 {
-	/* 8 is the number of required instructions cycles for the below loop statement.
-	The SDMMC_CMDTIMEOUT is expressed in ms */
-	register uint32_t count = SDIO_CMDTIMEOUT * (SystemCoreClock / 8U /1000U);
-	
-	do
-	{
-		if (count-- == 0U)
-		{
+	uint32_t start_tick = systick_get_tick_count();
+	do {
+		if ((systick_get_tick_count() - start_tick) > SDIO_CMDTIMEOUT) {
+			debug_msg("Error: SDMMC_ERROR_TIMEOUT in %s\n", __func__);
 			return SDMMC_ERROR_TIMEOUT;
 		}
-		
 	}while(!__SDIO_GET_FLAG(SDIOx, SDIO_FLAG_CCRCFAIL | SDIO_FLAG_CMDREND | SDIO_FLAG_CTIMEOUT));
 		
 	if (__SDIO_GET_FLAG(SDIOx, SDIO_FLAG_CTIMEOUT))
 	{
 		__SDIO_CLEAR_FLAG(SDIOx, SDIO_FLAG_CTIMEOUT);
-		
+		debug_msg("Error: SDMMC_ERROR_CMD_RSP_TIMEOUT in %s\n", __func__);
 		return SDMMC_ERROR_CMD_RSP_TIMEOUT;
 	}
 	else if (__SDIO_GET_FLAG(SDIOx, SDIO_FLAG_CCRCFAIL))
 	{
 		__SDIO_CLEAR_FLAG(SDIOx, SDIO_FLAG_CCRCFAIL);
-		
+		debug_msg("Error: SDMMC_ERROR_CMD_CRC_FAIL in %s\n", __func__);
 		return SDMMC_ERROR_CMD_CRC_FAIL;
 	}
 	else
@@ -1007,27 +1106,21 @@ static uint32_t SDMMC_GetCmdResp2(SDIO_TypeDef *SDIOx)
  */
 static uint32_t SDMMC_GetCmdResp3(SDIO_TypeDef *SDIOx)
 {
-	/* 8 is the number of required instructions cycles for the below loop statement.
-	The SDMMC_CMDTIMEOUT is expressed in ms */
-	register uint32_t count = SDIO_CMDTIMEOUT * (SystemCoreClock / 8U /1000U);
-	
-	do
-	{
-		if (count-- == 0U)
-		{
+	uint32_t start_tick = systick_get_tick_count();
+	do {
+		if ((systick_get_tick_count() - start_tick) > SDIO_CMDTIMEOUT) {
+			debug_msg("Error: SDMMC_ERROR_TIMEOUT in %s\n", __func__);
 			return SDMMC_ERROR_TIMEOUT;
 		}
-		
 	}while(!__SDIO_GET_FLAG(SDIOx, SDIO_FLAG_CCRCFAIL | SDIO_FLAG_CMDREND | SDIO_FLAG_CTIMEOUT));
 	
 	if(__SDIO_GET_FLAG(SDIOx, SDIO_FLAG_CTIMEOUT))
 	{
 		__SDIO_CLEAR_FLAG(SDIOx, SDIO_FLAG_CTIMEOUT);
-		
+		debug_msg("Error: SDMMC_ERROR_CMD_RSP_TIMEOUT in %s\n", __func__);
 		return SDMMC_ERROR_CMD_RSP_TIMEOUT;
 	}
 	else
- 
 	{  
 		/* Clear all the static flags */
 		__SDIO_CLEAR_FLAG(SDIOx, SDIO_STATIC_FLAGS);
@@ -1042,36 +1135,31 @@ static uint32_t SDMMC_GetCmdResp3(SDIO_TypeDef *SDIOx)
 static uint32_t SDMMC_GetCmdResp6(SDIO_TypeDef *SDIOx, uint8_t SD_CMD, uint16_t *pRCA)
 {
 	uint32_t response_r1;
-
-	/* 8 is the number of required instructions cycles for the below loop statement.
-	The SDMMC_CMDTIMEOUT is expressed in ms */
-	register uint32_t count = SDIO_CMDTIMEOUT * (SystemCoreClock / 8U /1000U);
-	
-	do
-	{
-		if (count-- == 0U)
-		{
+	uint32_t start_tick = systick_get_tick_count();
+	do {
+		if ((systick_get_tick_count() - start_tick) > SDIO_CMDTIMEOUT) {
+			debug_msg("Error: SDMMC_ERROR_TIMEOUT in %s\n", __func__);
 			return SDMMC_ERROR_TIMEOUT;
 		}
-		
 	}while(!__SDIO_GET_FLAG(SDIOx, SDIO_FLAG_CCRCFAIL | SDIO_FLAG_CMDREND | SDIO_FLAG_CTIMEOUT));
 	
 	if(__SDIO_GET_FLAG(SDIOx, SDIO_FLAG_CTIMEOUT))
 	{
 		__SDIO_CLEAR_FLAG(SDIOx, SDIO_FLAG_CTIMEOUT);
-		
+		debug_msg("Error: SDMMC_ERROR_CMD_RSP_TIMEOUT in %s\n", __func__);
 		return SDMMC_ERROR_CMD_RSP_TIMEOUT;
 	}
 	else if(__SDIO_GET_FLAG(SDIOx, SDIO_FLAG_CCRCFAIL))
 	{
 		__SDIO_CLEAR_FLAG(SDIOx, SDIO_FLAG_CCRCFAIL);
-		
+		debug_msg("Error: SDMMC_ERROR_CMD_CRC_FAIL in %s\n", __func__);
 		return SDMMC_ERROR_CMD_CRC_FAIL;
 	}
 	
 	/* Check response received is of desired command */
 	if(SDIO_GetCommandResponse(SDIOx) != SD_CMD)
-	{
+	{	
+		debug_msg("Error: SDMMC_ERROR_CMD_CRC_FAIL in %s\n", __func__);
 		return SDMMC_ERROR_CMD_CRC_FAIL;
 	}
 	
@@ -1084,19 +1172,21 @@ static uint32_t SDMMC_GetCmdResp6(SDIO_TypeDef *SDIOx, uint8_t SD_CMD, uint16_t 
 	if((response_r1 & (SDMMC_R6_GENERAL_UNKNOWN_ERROR | SDMMC_R6_ILLEGAL_CMD | SDMMC_R6_COM_CRC_FAILED)) == SDMMC_ALLZERO)
 	{
 		*pRCA = (uint16_t) (response_r1 >> 16);
-		
 		return SDMMC_ERROR_NONE;
 	}
 	else if((response_r1 & SDMMC_R6_ILLEGAL_CMD) == SDMMC_R6_ILLEGAL_CMD)
 	{
+		debug_msg("Error: SDMMC_ERROR_ILLEGAL_CMD in %s\n", __func__);
 		return SDMMC_ERROR_ILLEGAL_CMD;
 	}
 	else if((response_r1 & SDMMC_R6_COM_CRC_FAILED) == SDMMC_R6_COM_CRC_FAILED)
 	{
+		debug_msg("Error: SDMMC_ERROR_COM_CRC_FAILED in %s\n", __func__);
 		return SDMMC_ERROR_COM_CRC_FAILED;
 	}
 	else
 	{
+		debug_msg("Error: SDMMC_ERROR_GENERAL_UNKNOWN_ERR in %s\n", __func__);
 		return SDMMC_ERROR_GENERAL_UNKNOWN_ERR;
 	}
 }
@@ -1106,24 +1196,19 @@ static uint32_t SDMMC_GetCmdResp6(SDIO_TypeDef *SDIOx, uint8_t SD_CMD, uint16_t 
  */
 static uint32_t SDMMC_GetCmdResp7(SDIO_TypeDef *SDIOx)
 {
-	/* 8 is the number of required instructions cycles for the below loop statement.
-	The SDIO_CMDTIMEOUT is expressed in ms */
-	register uint32_t count = SDIO_CMDTIMEOUT * (SystemCoreClock / 8U /1000U);
-	
-	do
-	{
-		if (count-- == 0U)
-		{
+	uint32_t start_tick = systick_get_tick_count();
+	do {
+		if ((systick_get_tick_count() - start_tick) > SDIO_CMDTIMEOUT) {
+			debug_msg("Error: SDMMC_ERROR_TIMEOUT in %s\n", __func__);
 			return SDMMC_ERROR_TIMEOUT;
 		}
-		
 	}while(!__SDIO_GET_FLAG(SDIOx, SDIO_FLAG_CCRCFAIL | SDIO_FLAG_CMDREND | SDIO_FLAG_CTIMEOUT));
 
 	if(__SDIO_GET_FLAG(SDIOx, SDIO_FLAG_CTIMEOUT))
 	{
 		/* Card is SD V2.0 compliant */
 		__SDIO_CLEAR_FLAG(SDIOx, SDIO_FLAG_CMDREND);
-		
+		debug_msg("Error: SDMMC_ERROR_CMD_RSP_TIMEOUT in %s\n", __func__);
 		return SDMMC_ERROR_CMD_RSP_TIMEOUT;
 	}
 	

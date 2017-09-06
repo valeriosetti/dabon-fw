@@ -38,6 +38,27 @@ void HW_init()
 	debug_msg("Initialization completed\n");
 }
 
+FRESULT scan_files(char* path)
+{
+    FRESULT res;
+    DIR dir;
+    UINT i;
+    static FILINFO fno;
+
+
+    res = f_opendir(&dir, path);                       /* Open the directory */
+    if (res == FR_OK) {
+        for (;;) {
+            res = f_readdir(&dir, &fno);                   /* Read a directory item */
+            if (res != FR_OK || fno.fname[0] == 0) break;  /* Break on error or end of dir */
+            debug_msg("%s\n", fno.fname);
+        }
+        f_closedir(&dir);
+    }
+
+    return res;
+}
+
 
 /*
  *	System's main function
@@ -67,8 +88,10 @@ void main()
 		debug_msg("  Gas-gauge NOT found\n");
 */
 	// FatFs test
-	//FATFS fs;
-	//f_mount(&fs, "\0", 0);
+	FATFS fs;
+	if (f_mount(&fs, "\0", 1) == FR_OK) {
+		scan_files("/");
+	}
 
 	// Timer
 	uint32_t curr_time = 0;

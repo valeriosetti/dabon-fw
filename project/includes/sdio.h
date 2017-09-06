@@ -242,8 +242,8 @@ typedef struct
 #define SDMMC_HALFFIFOBYTES                0x00000020U
 
 /** 
-	* Command Class supported
-	*/
+ * Command Class supported
+ */
 #define SDIO_CCCC_ERASE                   0x00000020U
 
 #define SDIO_CMDTIMEOUT                   5000U        /* Command send and response timeout */
@@ -251,8 +251,8 @@ typedef struct
 
 
 /**
-	* Clock Edge
-	*/
+ * Clock Edge
+ */
 #define SDIO_CLOCK_EDGE_RISING               0x00000000U
 #define SDIO_CLOCK_EDGE_FALLING              SDIO_CLKCR_NEGEDGE
 
@@ -263,8 +263,8 @@ typedef struct
 #define SDIO_CLOCK_BYPASS_ENABLE              SDIO_CLKCR_BYPASS   
 
 /** 
-	* Clock Power Saving
-	*/
+ * Clock Power Saving
+ */
 #define SDIO_CLOCK_POWER_SAVE_DISABLE         0x00000000U
 #define SDIO_CLOCK_POWER_SAVE_ENABLE          SDIO_CLKCR_PWRSAV
 
@@ -276,21 +276,21 @@ typedef struct
 #define SDIO_BUS_WIDE_8B                      SDIO_CLKCR_WIDBUS_1
 
 /** 
-	* Hardware Flow Control
-	*/
+ * Hardware Flow Control
+ */
 #define SDIO_HARDWARE_FLOW_CONTROL_DISABLE    0x00000000U
 #define SDIO_HARDWARE_FLOW_CONTROL_ENABLE     SDIO_CLKCR_HWFC_EN
 
 /** 
-	* Response Type
-	*/
+ * Response Type
+ */
 #define SDIO_RESPONSE_NO                    0x00000000U
 #define SDIO_RESPONSE_SHORT                 SDIO_CMD_WAITRESP_0
 #define SDIO_RESPONSE_LONG                  SDIO_CMD_WAITRESP
 
 /** 
-	* Wait Interrupt
-	*/
+ * Wait Interrupt
+ */
 #define SDIO_WAIT_NO                        0x00000000U
 #define SDIO_WAIT_IT                        SDIO_CMD_WAITINT 
 #define SDIO_WAIT_PEND                      SDIO_CMD_WAITPEND
@@ -302,16 +302,16 @@ typedef struct
 #define SDIO_CPSM_ENABLE                    SDIO_CMD_CPSMEN
 
 /** 
-	* Response Register
-	*/
+ * Response Register
+ */
 #define SDIO_RESP1                          0x00000000U
 #define SDIO_RESP2                          0x00000004U
 #define SDIO_RESP3                          0x00000008U
 #define SDIO_RESP4                          0x0000000CU
 
 /** 
-	* Data Block Size
-	*/
+ * Data Block Size
+ */
 #define SDIO_DATABLOCK_SIZE_1B               0x00000000U
 #define SDIO_DATABLOCK_SIZE_2B               SDIO_DCTRL_DBLOCKSIZE_0
 #define SDIO_DATABLOCK_SIZE_4B               SDIO_DCTRL_DBLOCKSIZE_1
@@ -329,32 +329,32 @@ typedef struct
 #define SDIO_DATABLOCK_SIZE_16384B           (SDIO_DCTRL_DBLOCKSIZE_1|SDIO_DCTRL_DBLOCKSIZE_2|SDIO_DCTRL_DBLOCKSIZE_3)
 
 /** 
-	* Transfer Direction
-	*/
+ * Transfer Direction
+ */
 #define SDIO_TRANSFER_DIR_TO_CARD            0x00000000U
 #define SDIO_TRANSFER_DIR_TO_SDIO            SDIO_DCTRL_DTDIR
 
 /** 
-	* Transfer Type
-	*/
+ * Transfer Type
+ */
 #define SDIO_TRANSFER_MODE_BLOCK             0x00000000U
 #define SDIO_TRANSFER_MODE_STREAM            SDIO_DCTRL_DTMODE
 
 /** 
-	* DPSM State
-	*/
+ * DPSM State
+ */
 #define SDIO_DPSM_DISABLE                    0x00000000U
 #define SDIO_DPSM_ENABLE                     SDIO_DCTRL_DTEN
 	
 /** 
-	* Read Wait Mode
-	*/
+ * Read Wait Mode
+ */
 #define SDIO_READ_WAIT_MODE_DATA2                0x00000000U
 #define SDIO_READ_WAIT_MODE_CLK                  (SDIO_DCTRL_RWMOD)
 
 /** 
-	* Interrupt Sources
-	*/
+ * Interrupt Sources
+ */
 #define SDIO_IT_CCRCFAIL                    SDIO_STA_CCRCFAIL
 #define SDIO_IT_DCRCFAIL                    SDIO_STA_DCRCFAIL
 #define SDIO_IT_CTIMEOUT                    SDIO_STA_CTIMEOUT
@@ -381,8 +381,8 @@ typedef struct
 #define SDIO_IT_CEATAEND                    SDIO_STA_CEATAEND
 
 /** 
-	* Flags
-	*/
+ * Flags
+ */
 #define SDIO_FLAG_CCRCFAIL                  SDIO_STA_CCRCFAIL
 #define SDIO_FLAG_DCRCFAIL                  SDIO_STA_DCRCFAIL
 #define SDIO_FLAG_CTIMEOUT                  SDIO_STA_CTIMEOUT
@@ -414,12 +414,12 @@ typedef struct
 
 /* Exported macro ------------------------------------------------------------*/
 /** 
-	* SDIO_LL Exported Macros
-	*/
+ * SDIO_LL Exported Macros
+ */
 
 /** 
-	* Bit Address in the alias region
-	*/
+ * Bit Address in the alias region
+ */
 /* ------------ SDIO registers bit address in the alias region -------------- */
 #define SDIO_OFFSET               (SDIO_BASE - PERIPH_BASE)
 
@@ -743,7 +743,7 @@ typedef struct
 
 
 /* Initialization/de-initialization functions  **********************************/
-uint32_t SDIO_Init(SDIO_TypeDef *SDIOx, uint32_t WideMode);
+uint32_t SDIO_Init(SDIO_TypeDef *SDIOx, uint32_t WideMode, uint32_t clk_div);
 uint32_t SDIO_HwInit();
 	
 /* I/O operation functions  *****************************************************/

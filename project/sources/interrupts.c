@@ -1,5 +1,6 @@
 #include "stdint.h"
 #include "systick.h"
+#include "sd_card.h"
 
 // The following symbols are defined in the linker script
 extern uint32_t _sidata;
@@ -24,7 +25,7 @@ void default_handler(void)
 	while (1);
 }
 
-void Reset_Handler(void)
+__attribute__((naked)) void Reset_Handler(void)
 {
 	register uint32_t regMainStackPointer asm("sp") = (uint32_t)&_estack;
   
@@ -107,7 +108,7 @@ void TIM8_TRG_COM_TIM14_IRQHandler(void) __attribute((weak, alias("default_handl
 void TIM8_CC_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void DMA1_Stream7_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void FSMC_IRQHandler(void) __attribute((weak, alias("default_handler")));
-void SDIO_IRQHandler(void) __attribute((weak, alias("default_handler")));
+//void SDIO_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void TIM5_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void SPI3_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void UART4_IRQHandler(void) __attribute((weak, alias("default_handler")));
@@ -117,7 +118,7 @@ void TIM7_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void DMA2_Stream0_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void DMA2_Stream1_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void DMA2_Stream2_IRQHandler(void) __attribute((weak, alias("default_handler")));
-void DMA2_Stream3_IRQHandler(void) __attribute((weak, alias("default_handler")));
+//void DMA2_Stream3_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void DMA2_Stream4_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void ETH_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void ETH_WKUP_IRQHandler(void) __attribute((weak, alias("default_handler")));

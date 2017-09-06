@@ -54,14 +54,10 @@ typedef struct
  */ 
 typedef struct
 {
-	uint32_t                     *pTxBuffPtr;      /*!< Pointer to SD Tx transfer Buffer    */
-	uint32_t                     TxXferSize;       /*!< SD Tx Transfer size                 */
-	uint32_t                     *pRxBuffPtr;      /*!< Pointer to SD Rx transfer Buffer    */
-	uint32_t                     RxXferSize;       /*!< SD Rx Transfer size                 */
-	volatile uint32_t                Context;          /*!< SD transfer context                 */
-	SD_CardInfoTypeDef       SdCard;           /*!< SD Card information                 */
-	uint32_t                     CSD[4];           /*!< SD card specific data table         */
-	uint32_t                     CID[4];           /*!< SD card identification number table */
+	uint32_t			   Context;
+	SD_CardInfoTypeDef     SdCard;           /*!< SD Card information                 */
+	uint32_t               CSD[4];           /*!< SD card specific data table         */
+	uint32_t               CID[4];           /*!< SD card identification number table */
 }SD_HandleTypeDef;
 
 /* 
@@ -213,22 +209,22 @@ typedef struct
 /*
  * Enable the SD device.
  */ 
-#define SD_ENABLE(__HANDLE__) __SDIO_ENABLE(SDIO)
+#define SD_ENABLE() __SDIO_ENABLE(SDIO)
 
 /*
  * Disable the SD device.
  */
-#define SD_DISABLE(__HANDLE__) __SDIO_DISABLE(SDIO)
+#define SD_DISABLE() __SDIO_DISABLE(SDIO)
 
 /*
  * Enable the SDMMC DMA transfer.
  */ 
-#define SD_DMA_ENABLE(__HANDLE__) __SDIO_DMA_ENABLE(SDIO)
+#define SD_DMA_ENABLE() __SDIO_DMA_ENABLE(SDIO)
 
 /*
  * Disable the SDMMC DMA transfer.
  */
-#define SD_DMA_DISABLE(__HANDLE__)  __SDIO_DMA_DISABLE(SDIO)
+#define SD_DMA_DISABLE()  __SDIO_DMA_DISABLE(SDIO)
  
 /*
  * Enable the SD device interrupt.
@@ -380,42 +376,30 @@ uint32_t SD_InitCard();
 /*
  * Input and Output operation functions
  */
-//~ int32_t SD_ReadBlocks_DMA(uint8_t *pData, uint32_t BlockAdd, uint32_t NumberOfBlocks);
-//~ int32_t SD_WriteBlocks_DMA(uint8_t *pData, uint32_t BlockAdd, uint32_t NumberOfBlocks);
+uint32_t SD_ReadBlocks_DMA(uint8_t *pData, uint32_t BlockAdd, uint32_t NumberOfBlocks);
+uint32_t SD_Erase(uint32_t BlockStartAdd, uint32_t BlockEndAdd);
 
-//~ void SD_IRQHandler();
-
-/* Callback in non blocking modes (DMA) */
-//~ void SD_TxCpltCallback();
-//~ void SD_RxCpltCallback();
-//~ void SD_ErrorCallback();
-//~ void SD_AbortCallback();
+void SDIO_IRQHandler();
+void DMA2_Stream3_IRQHandler();
 	
 /*
  * Peripheral Control functions
  */
-//~ int32_t SD_ConfigWideBusOperation(uint32_t WideMode);
+uint32_t SD_ConfigWideBusOperation(uint32_t WideMode);
 
 /*
  * SD card related functions
  */
 uint32_t       SD_SendSDStatus(uint32_t *pSDstatus);
-//~ SD_CardStateTypeDef SD_GetCardState();
+SD_CardStateTypeDef SD_GetCardState();
 uint32_t       SD_GetCardCID(SD_CardCIDTypeDef *pCID);
 uint32_t       SD_GetCardCSD(SD_CardCSDTypeDef *pCSD);
 //~ int32_t       SD_GetCardStatus(SD_Cardint32_t *pStatus);
 //~ int32_t       SD_GetCardInfo(SD_CardInfoTypeDef *pCardInfo);
 
-/* 
- * Peripheral State and Errors functions
- */
-//~ SD_StateTypeDef SD_GetState();
-//~ uint32_t SD_GetError();
-
 /*
  * Perioheral Abort management
  */
-//~ int32_t SD_Abort();
-//~ int32_t SD_Abort_IT();
+uint32_t SD_Abort();
 
 #endif /* _SD_CARD_H_ */ 
