@@ -13,6 +13,7 @@
 #include "sd_card_detect.h"
 #include "ff.h"
 #include "systick.h"
+#include "mp3dec.h"
 
 #define debug_msg(...)		debug_printf_with_tag("[Main] ", __VA_ARGS__)
 
@@ -37,28 +38,6 @@ void HW_init()
 	oled_init();
 	debug_msg("Initialization completed\n");
 }
-
-FRESULT scan_files(char* path)
-{
-    FRESULT res;
-    DIR dir;
-    UINT i;
-    static FILINFO fno;
-
-
-    res = f_opendir(&dir, path);                       /* Open the directory */
-    if (res == FR_OK) {
-        for (;;) {
-            res = f_readdir(&dir, &fno);                   /* Read a directory item */
-            if (res != FR_OK || fno.fname[0] == 0) break;  /* Break on error or end of dir */
-            debug_msg("%s\n", fno.fname);
-        }
-        f_closedir(&dir);
-    }
-
-    return res;
-}
-
 
 /*
  *	System's main function
@@ -90,8 +69,14 @@ void main()
 	// FatFs test
 	FATFS fs;
 	if (f_mount(&fs, "\0", 1) == FR_OK) {
-		scan_files("/");
+		FILINFO fno;
+		DIR dir;
+		FRESULT res;
+		res = f_opendir(&dir, "/");
+		res = f_readdir(&dir, &fno);
+		mp3_player_play(fno.fname);
 	}
+	
 
 	// Timer
 	uint32_t curr_time = 0;

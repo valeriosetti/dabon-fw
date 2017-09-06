@@ -1,4 +1,4 @@
-PROJECT_PATH=./project
+PROJECT_PATH=project
 
 SRCS += $(PROJECT_PATH)/sources/clock_configuration.c
 SRCS += $(PROJECT_PATH)/sources/debug_printf.c
@@ -17,5 +17,6 @@ SRCS += $(PROJECT_PATH)/sources/tuner.c
 SRCS += $(PROJECT_PATH)/sources/uart.c
 SRCS += $(PROJECT_PATH)/sources/interrupts.c
 SRCS += $(PROJECT_PATH)/sources/systick.c
+SRCS += $(PROJECT_PATH)/sources/mp3_player.c
 				
-INCS += -I./project/includes
+INCS += -I$(PROJECT_PATH)/includes
