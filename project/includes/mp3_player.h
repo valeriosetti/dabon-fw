@@ -3,9 +3,9 @@
 
 #include "stdint.h"
 
-uint32_t mp3_player_play(char* path);
-uint32_t mp3_player_pause(void);
-uint32_t mp3_player_stop(void);
+int32_t mp3_player_play(char* path);
+int32_t mp3_player_pause(void);
+int32_t mp3_player_stop(void);
 uint8_t mp3_player_get_status(void);
 
 #define MP3_PLAYER_IDLE		0x00

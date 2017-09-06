@@ -23,7 +23,7 @@ struct {
 /*
  * Refill the internal buffer
  */
-static uint32_t mp3_player_refill_buffer()
+static int32_t mp3_player_refill_buffer()
 {
 	// If the buffer has already been used, the "read_ptr" will not be set at 
 	// the beginning of the array. Therefore the data must be lef-shifted before
@@ -48,17 +48,36 @@ static uint32_t mp3_player_refill_buffer()
 			return -2;
 		}
 	}
+	return 0;	
+}
+
+/*
+ * 	"left" shift the buffer and refill with new data
+ */
+static int32_t mp3_player_seek(uint16_t offset)
+{
+	// it's not possible to seek over 
+	if (offset > FILE_BUFFER_SIZE)
+		offset = FILE_BUFFER_SIZE;
 		
+	local_buffer.read_ptr = offset;
+	
+	// pointers' integrity check
+	if (local_buffer.write_ptr < local_buffer.read_ptr)
+		local_buffer.write_ptr = local_buffer.read_ptr;
+		
+	return mp3_player_refill_buffer();
 }
 
 /*
  * 	Reset the internal buffer infos
  */
-static uint32_t mp3_player_reset_internal_buffer()
+static int32_t mp3_player_reset_internal_buffer()
 {
 	memset(local_buffer.data, 0, sizeof(local_buffer.data));
 	local_buffer.read_ptr = 0;
 	local_buffer.write_ptr = 0;
+	return 0;
 }
 
 /*******************************************************************/
@@ -67,7 +86,7 @@ static uint32_t mp3_player_reset_internal_buffer()
 /*
  * 
  */
-uint32_t mp3_player_play(char* path)
+int32_t mp3_player_play(char* path)
 {
 	if (hMP3Decoder == NULL)
 		hMP3Decoder = MP3InitDecoder;
@@ -77,33 +96,47 @@ uint32_t mp3_player_play(char* path)
 		debug_msg("error opening the file\n");
 		return -1;
 	}
-	
+	// fill the internal buffer
 	mp3_player_reset_internal_buffer();
 	if (mp3_player_refill_buffer() != 0)
 		return -2;
-		
-	if (MP3FindSyncWord(local_buffer.data, local_buffer.write_ptr) != ERR_MP3_NONE) {
+	// find synchronization word
+	if (MP3FindSyncWord(local_buffer.data, local_buffer.read_ptr) != ERR_MP3_NONE) {
 		debug_msg("cannot find sync word\n");
 		return -3;
 	}
+	// refill the buffer with the first frame
+	if (mp3_player_refill_buffer() != 0)
+		return -4;
+	// decode the frame
+	uint8_t* buff_ptr = local_buffer.data;
+	uint32_t bytesLeft;
+	uint16_t audio_samples[1024];
+	if (MP3Decode(&hMP3Decoder, &buff_ptr, (int*)&bytesLeft, audio_samples, local_buffer.write_ptr) != ERR_MP3_NONE) {
+		debug_msg("error decoding frame\n");
+		return -5;
+	}
 	
 	internal_status = MP3_PLAYER_PLAYING;
+	return 0;
 }
 
 /*
  * 
  */
-uint32_t mp3_player_pause()
+int32_t mp3_player_pause()
 {
 	internal_status = MP3_PLAYER_PAUSED;
+	return 0;
 }
 
 /*
  * 
  */
-uint32_t mp3_player_stop()
+int32_t mp3_player_stop()
 {
 	internal_status = MP3_PLAYER_IDLE;
+	return 0;
 }
 
 /*
