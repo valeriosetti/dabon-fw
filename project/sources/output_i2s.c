@@ -33,9 +33,6 @@ I2S_PLL_CONFIG 	i2s_pll_configurations[] = {
 #define	OUTPUT_BUFFER_SIZE		1000UL
 uint32_t output_buffer[OUTPUT_BUFFER_SIZE];
 
-// Private functions declarations
-static int output_i2s_ConfigurePLL(uint32_t  samplig_freq);
-
 // Macros
 #define I2S3_enable()		do{ SET_BIT(SPI3->I2SCFGR, SPI_I2SCFGR_I2SE);	} while(0)
 #define I2S3_disable()		do{ CLEAR_BIT(SPI3->I2SCFGR, SPI_I2SCFGR_I2SE);	} while(0)
@@ -113,7 +110,7 @@ int output_i2s_init()
 /*
  * Configure the PLL
  */
-static int output_i2s_ConfigurePLL(uint32_t samplig_freq)
+int output_i2s_ConfigurePLL(uint32_t samplig_freq)
 {
 	// Look for the specified sample rate frequency in the list of allowed configurations
 	uint8_t index = 0;

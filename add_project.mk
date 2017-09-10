@@ -18,5 +18,6 @@ SRCS += $(PROJECT_PATH)/sources/uart.c
 SRCS += $(PROJECT_PATH)/sources/interrupts.c
 SRCS += $(PROJECT_PATH)/sources/systick.c
 SRCS += $(PROJECT_PATH)/sources/mp3_player.c
+SRCS += $(PROJECT_PATH)/sources/sgtl5000.c
 				
 INCS += -I$(PROJECT_PATH)/includes
