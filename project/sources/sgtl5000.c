@@ -400,7 +400,7 @@
  */
 int32_t sgtl5000_read_reg(uint16_t reg, uint16_t* value)
 {
-	uint8_t reg_in_bytes[2] = { (reg >> 8) & 0xFF, reg & 0xFF};
+	uint8_t reg_in_bytes[2] = { reg & 0xFF, (reg >> 8) & 0xFF};
 	uint8_t read_bytes[2];
 	int32_t ret_val = 0;
 
@@ -421,8 +421,8 @@ int32_t sgtl5000_read_reg(uint16_t reg, uint16_t* value)
  */
 int32_t sgtl5000_write_reg(uint16_t reg, uint16_t value)
 {
-	uint8_t reg_in_bytes[2] = { (reg >> 8) & 0xFF, reg & 0xFF};
-	uint8_t write_bytes[2] = { (value >> 8) & 0xFF, value & 0xFF};
+	uint8_t reg_in_bytes[2] = { reg & 0xFF, (reg >> 8) & 0xFF};
+	uint8_t write_bytes[2] = { value & 0xFF, (value >> 8) & 0xFF};
 	int32_t ret_val = 0;
 
 	ret_val = i2c_write_buffer(SGTL5000_I2C_ADDRESS, reg_in_bytes, 2);
@@ -687,14 +687,14 @@ int32_t sgtl5000_init()
 	ret_val = sgtl5000_power_up();
 	if (ret_val != 0)
 		return ret_val;
-	// Configure the sample frequenncy
+	// Configure the sample frequency
 	ret_val = output_i2s_ConfigurePLL(48000);
 	if (ret_val != 0)
 		return ret_val;
 	ret_val = sgtl5000_config_clocks(48000);
 	if (ret_val != 0)
 		return ret_val;
-	// Configure the intenal audio routing (no DAP)
+	// Configure the internal audio routing (no DAP)
 	ret_val = sgtl5000_set_audio_routing(FALSE);
 	if (ret_val != 0)
 		return ret_val;
