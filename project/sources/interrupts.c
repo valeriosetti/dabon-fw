@@ -1,6 +1,7 @@
 #include "stdint.h"
 #include "systick.h"
 #include "sd_card.h"
+#include "output_i2s.h"
 
 // The following symbols are defined in the linker script
 extern uint32_t _sidata;
@@ -106,7 +107,7 @@ void TIM8_BRK_TIM12_IRQHandler(void) __attribute((weak, alias("default_handler")
 void TIM8_UP_TIM13_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void TIM8_TRG_COM_TIM14_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void TIM8_CC_IRQHandler(void) __attribute((weak, alias("default_handler")));
-void DMA1_Stream7_IRQHandler(void) __attribute((weak, alias("default_handler")));
+//void DMA1_Stream7_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void FSMC_IRQHandler(void) __attribute((weak, alias("default_handler")));
 //void SDIO_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void TIM5_IRQHandler(void) __attribute((weak, alias("default_handler")));

@@ -4,6 +4,9 @@
 #include "clock_configuration.h"
 #include "utils.h"
 #include "debug_printf.h"
+#include "systick.h"
+
+#define debug_msg(...)		debug_printf_with_tag("[output_i2s] ", __VA_ARGS__)
 
 /**************************************************************************************************
  **************************************************************************************************
@@ -72,8 +75,10 @@ int output_i2s_init()
 
 	// Configure the input clock for the I2S3 peripheral
 	ret_val = output_i2s_ConfigurePLL(44100);
-	if (ret_val < OUTPUT_I2S_SUCCESS)
+	if (ret_val != 0) {
+		debug_msg("Error in: %s\n", __func__);
 		return ret_val;
+	}
 
 	// Set SPI3 to I2S transmit mode
 	MODIFY_REG(SPI3->I2SCFGR, SPI_I2SCFGR_I2SCFG_Msk, 2UL << SPI_I2SCFGR_I2SCFG_Pos);
@@ -101,10 +106,14 @@ int output_i2s_init()
 	DMA1_Stream7->NDTR = OUTPUT_BUFFER_SIZE;
 	DMA1_Stream7->PAR = (uint32_t) &(SPI3->DR);
 	DMA1_Stream7->M0AR = (uint32_t) output_buffer;
+	// Enable DMA's interrupt
+	SET_BIT(DMA1_Stream7->CR, DMA_SxCR_TCIE);
+	NVIC_SetPriority(DMA1_Stream7_IRQn, 0x01);
+	NVIC_EnableIRQ(DMA1_Stream7_IRQn);
 	// Enable the DMA
 	SET_BIT(DMA1_Stream7->CR, DMA_SxCR_EN);
 
-	return OUTPUT_I2S_SUCCESS;
+	return 0;
 }
 
 /*
@@ -119,7 +128,8 @@ int output_i2s_ConfigurePLL(uint32_t samplig_freq)
 	}
 	// If no matching configuration was found then return an error
 	if (index == PLL_CONFIGURATIONS_COUNT) {
-		return OUTPUT_I2S_PLL_CONFIG_NOT_FOUND;
+		debug_msg("Error: PLL configuration not found\n");
+		return -1;
 	}
 
 	// Configure the input PLL
@@ -139,6 +149,14 @@ int output_i2s_ConfigurePLL(uint32_t samplig_freq)
 	// Output also the MCLK
 	SET_BIT(SPI3->I2SPR, SPI_I2SPR_MCKOE);
 
-	return OUTPUT_I2S_SUCCESS;
+	return 0;
+}
+
+/*
+ * ISR - This interrupt is triggered every time the DMA completes the buffer transmission
+ */
+void DMA1_Stream7_IRQHandler(void)
+{
+	DMA1->HIFCR = (DMA_HIFCR_CTCIF7_Msk | DMA_HIFCR_CHTIF7_Msk | DMA_HIFCR_CTEIF7_Msk | DMA_HIFCR_CDMEIF7_Msk | DMA_HIFCR_CFEIF7_Msk);
 }
 

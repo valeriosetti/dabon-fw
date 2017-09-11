@@ -14,6 +14,7 @@
 #include "ff.h"
 #include "systick.h"
 #include "mp3dec.h"
+#include "sgtl5000.h"
 
 #define debug_msg(...)		debug_printf_with_tag("[Main] ", __VA_ARGS__)
 
@@ -35,6 +36,7 @@ void HW_init()
 	// Peripherals
 	eeprom_init();
 	tuner_init();
+	sgtl5000_init();
 	oled_init();
 	debug_msg("Initialization completed\n");
 }
@@ -50,24 +52,8 @@ void main()
 	// Initialize peripherals
 	HW_init();
 
-	/*** Test I2C peripherals (codec & gas-gauge) ***/
-/*	// Codec
-	uint8_t tmp_addr;
-	tmp_addr = 0x0A;
-	if (i2c_scan_address(tmp_addr) != I2C_ERROR)
-		debug_msg("  Codec found!\n");
-	else
-		debug_msg("  Codec NOT found\n");
-
-	// Gas-gauge
-	tmp_addr = 0x70;
-	if (i2c_scan_address(tmp_addr) != I2C_ERROR)
-		debug_msg("  Gas-gauge found!\n");
-	else
-		debug_msg("  Gas-gauge NOT found\n");
-*/
 	// FatFs test
-	FATFS fs;
+	/*FATFS fs;
 	if (f_mount(&fs, "\0", 1) == FR_OK) {
 		FILINFO fno;
 		DIR dir;
@@ -75,14 +61,14 @@ void main()
 		res = f_opendir(&dir, "/");
 		res = f_readdir(&dir, &fno);
 		mp3_player_play(fno.fname);
-	}
+	}*/
 	
-
 	// Timer
-	uint32_t curr_time = 0;
+	uint32_t start_tick = systick_get_tick_count();
 	while (1)
 	{
-		timer_wait_us(1000000UL);
+		while ((systick_get_tick_count()-start_tick) < 1000UL) {};
+		start_tick = systick_get_tick_count();
 		debug_msg("[%d] card inserted = %d\n", systick_get_tick_count(), sd_card_detect_is_card_inserted());
 	}
 }
