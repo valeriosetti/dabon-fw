@@ -2,9 +2,14 @@
 #include "stm32f407xx.h"
 #include "clock_configuration.h"
 #include "gpio.h"
+#include "systick.h"
+#include "debug_printf.h"
+
+#define debug_msg(...)		debug_printf_with_tag("[i2c] ", __VA_ARGS__)
 
 // Interface properties
 #define I2C_CLOCK_FREQ				100000		// in Hz
+#define I2C_TIMEOUT					100			// in ms
 
 // Read/write LSb
 #define I2C_WRITE_MASK				0x00
@@ -23,15 +28,15 @@
                                                                   ((I2C_SPEED_FAST((__PCLK__), (__SPEED__), (__DUTYCYCLE__))) | I2C_CCR_FS))
 
 // Private functions' prototypes
-static int i2c_send_start(void);
-static int i2c_send_address(uint8_t address, uint8_t operation_mask);
-static int i2c_send_byte(uint8_t data, uint8_t wait_for_tx_to_complete);
-static int i2c_receive_byte(uint8_t* data, uint8_t bytes_left);
+static int32_t i2c_send_start(void);
+static int32_t i2c_send_address(uint8_t address, uint8_t operation_mask);
+static int32_t i2c_send_byte(uint8_t data, uint8_t wait_for_tx_to_complete);
+static int32_t i2c_receive_byte(uint8_t* data, uint8_t bytes_left);
 
 /*
  * Initialize the i2c1 peripheral
  */
-int i2c_init()
+int32_t i2c_init()
 {
 	// Enable the GPIOB's peripheral clock
 	RCC_GPIOB_CLK_ENABLE();
@@ -53,38 +58,50 @@ int i2c_init()
 	I2C1->TRISE = (I2C_RISE_TIME(APB1_freq, I2C_CLOCK_FREQ) << I2C_TRISE_TRISE_Pos);
 	// Enable the peripheral
 	I2C1->CR1 |= I2C_CR1_PE;
-	return I2C_SUCCESS;
+	return 0;
 }
 
 /*
  * Send the start condition in order to begin the communication
  */
-static int i2c_send_start()
+static int32_t i2c_send_start()
 {
+	uint32_t start_tick = systick_get_tick_count();
 	// Set the START bit and wait for the start condition to be sent
 	I2C1->CR1 |= I2C_CR1_START;
-	while (!(I2C1->SR1 & I2C_SR1_SB));
-
-	return I2C_SUCCESS;
+	while (!(I2C1->SR1 & I2C_SR1_SB)) {
+		if ((systick_get_tick_count() - start_tick) > I2C_TIMEOUT) {
+			debug_msg("Start bit timeout\n");
+			return -1;
+		}
+	}
+	return 0;
 }
 
 /*
  * Send the address byte and wait for it to be transmitted
  */
-static int i2c_send_address(uint8_t address, uint8_t operation_mask)
+static int32_t i2c_send_address(uint8_t address, uint8_t operation_mask)
 {
+	uint32_t start_tick = systick_get_tick_count();
+	
 	I2C1->DR = ((address << 1U) | operation_mask);
 	while (!(I2C1->SR1 & I2C_SR1_ADDR)) {
 		// If no ACK is received for the specified address, then send the stop condition and return an error
 		if (I2C1->SR1 & I2C_SR1_AF) {
 			I2C1->SR1 &= ~I2C_SR1_AF;
-			return I2C_ERROR;
+			debug_msg("ACK bit not received for address 0x%x\n", address);
+			return -1;
+		}
+		if ((systick_get_tick_count() - start_tick) > I2C_TIMEOUT) {
+			debug_msg("Send address timed out\n");
+			return -2;
 		}
 	}
 	// Also SR2 must be read at this point as suggested by the datasheet
 	volatile uint32_t tmp = I2C1->SR2;
 
-	return I2C_SUCCESS;
+	return 0;
 }
 
 /*
@@ -94,34 +111,55 @@ static int i2c_send_address(uint8_t address, uint8_t operation_mask)
  * 	- otherwise, just wait for the data register to be empty in order to move
  * 		to the next byte
  */
-static int i2c_send_byte(uint8_t data, uint8_t wait_for_tx_to_complete)
+static int32_t i2c_send_byte(uint8_t data, uint8_t wait_for_tx_to_complete)
 {
+	uint32_t start_tick = systick_get_tick_count();
+	
 	I2C1->DR = data;
 	if (wait_for_tx_to_complete){
 		// Wait for the last byte to be completely transmitted
-		while(!(I2C1->SR1 & (I2C_SR1_TXE | I2C_SR1_BTF)));
+		while(!(I2C1->SR1 & (I2C_SR1_TXE | I2C_SR1_BTF))) {
+			if ((systick_get_tick_count() - start_tick) > I2C_TIMEOUT) {
+				debug_msg("Send byte timed out\n");
+				return -1;
+			}
+		}
 	} else {
 		// Wait for the data to be moved to the shift register
-		while(!(I2C1->SR1 & I2C_SR1_TXE));
+		while(!(I2C1->SR1 & I2C_SR1_TXE)) {
+			if ((systick_get_tick_count() - start_tick) > I2C_TIMEOUT) {
+				debug_msg("Send byte timed out\n");
+				return -2;
+			}
+		}
 	}
 
-	return I2C_SUCCESS;
+	return 0;
 }
 
 /*
  * Receive a single byte of data.
  * NOTE = The last byte must be NACKed. Additionally, the STOP bit must also be set before receiving the last byte.
  */
-static int i2c_receive_byte(uint8_t* data, uint8_t bytes_left)
+static int32_t i2c_receive_byte(uint8_t* data, uint8_t bytes_left)
 {
+	uint32_t start_tick = systick_get_tick_count();
+	
 	if (bytes_left == 1) {
-		I2C1->CR1 = (I2C1->CR1 & (~I2C_CR1_ACK)) | I2C_CR1_STOP;
+		I2C1->CR1 = (I2C1->CR1 & (~I2C_CR1_ACK));
+	} else {
+		I2C1->CR1 |= I2C_CR1_ACK;
 	}
 	// Wait until new data is received
-	while(!(I2C1->SR1 & I2C_SR1_RXNE));
+	while(!(I2C1->SR1 & I2C_SR1_RXNE)) {
+		if ((systick_get_tick_count() - start_tick) > I2C_TIMEOUT) {
+			debug_msg("Receive byte timed out\n");
+			return -2;
+		}
+	}
 	*data = I2C1->DR;
 
-	return I2C_SUCCESS;
+	return 0;
 }
 
 /*
@@ -132,24 +170,28 @@ static int i2c_receive_byte(uint8_t* data, uint8_t bytes_left)
 /*
  * Write an array of bytes to the specified peripheral
  */
-int i2c_write_buffer(uint8_t addr, uint8_t* data, uint8_t length)
+int32_t i2c_write_buffer(uint8_t addr, uint8_t* data, uint8_t length)
 {
-	int ret_val = I2C_SUCCESS;
+	int ret_val = 0;
 
 	ret_val = i2c_send_start();
-	if (ret_val != I2C_SUCCESS) {
+	if (ret_val != 0) {
 		i2c_send_stop();
 		return ret_val;
 	}
 
 	ret_val = i2c_send_address(addr, I2C_WRITE_MASK);
-	if (ret_val != I2C_SUCCESS) {
+	if (ret_val != 0) {
 		i2c_send_stop();
 		return ret_val;
 	}
 
 	while (length > 0) {
-		i2c_send_byte(*data, (length==1));
+		ret_val = i2c_send_byte(*data, (length==1));
+		if (ret_val != 0) {
+			i2c_send_stop();
+			return ret_val;
+		}
 		data++;
 		length--;
 	}
@@ -162,37 +204,41 @@ int i2c_write_buffer(uint8_t addr, uint8_t* data, uint8_t length)
 /*
  * Read an array of bytes from the specified peripheral
  */
-int i2c_read_buffer(uint8_t addr, uint8_t* data, uint8_t length)
+int32_t i2c_read_buffer(uint8_t addr, uint8_t* data, uint8_t length)
 {
 	int ret_val;
 
 	ret_val = i2c_send_start();
-	if (ret_val != I2C_SUCCESS) {
+	if (ret_val != 0) {
 		i2c_send_stop();
 		return ret_val;
 	}
 
 	ret_val = i2c_send_address(addr, I2C_READ_MASK);
-	if (ret_val != I2C_SUCCESS) {
+	if (ret_val != 0) {
 		i2c_send_stop();
 		return ret_val;
 	}
 
 	while (length > 0) {
-		i2c_receive_byte(data, length);
+		ret_val = i2c_receive_byte(data, length);
+		if (ret_val != 0) {
+			i2c_send_stop();
+			return ret_val;
+		}
 		data++;
 		length--;
 	}
 
-	// The stop condition is already set after receiving the second to last byte
+	i2c_send_stop();
 
-	return I2C_SUCCESS;
+	return 0;
 }
 
 /*
  * Write a single byte
  */
-int i2c_write_byte(uint8_t addr, uint8_t data)
+int32_t i2c_write_byte(uint8_t addr, uint8_t data)
 {
 	return i2c_write_buffer(addr, &data, 1);
 }
@@ -200,7 +246,7 @@ int i2c_write_byte(uint8_t addr, uint8_t data)
 /*
  * Read a single byte
  */
-int i2c_read_byte(uint8_t addr, uint8_t* data)
+int32_t i2c_read_byte(uint8_t addr, uint8_t* data)
 {
 	return i2c_read_buffer(addr, data, 1);
 }
@@ -208,23 +254,23 @@ int i2c_read_byte(uint8_t addr, uint8_t* data)
 /*
  * Check if there's any peripheral at the specified address
  */
-int i2c_scan_address(uint8_t addr)
+int32_t i2c_scan_address(uint8_t addr)
 {
 	int ret_val;
 
 	ret_val = i2c_send_start();
-	if (ret_val != I2C_SUCCESS) {
+	if (ret_val != 0) {
 		i2c_send_stop();
 		return ret_val;
 	}
 
 	ret_val = i2c_send_address(addr, I2C_READ_MASK);
-	if (ret_val != I2C_SUCCESS) {
+	if (ret_val != 0) {
 		i2c_send_stop();
 		return ret_val;
 	}
 
 	// Send the STOP condition
 	i2c_send_stop();
-	return I2C_SUCCESS;
+	return 0;
 }
