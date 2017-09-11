@@ -8,9 +8,6 @@
 
 #define debug_msg(...)		debug_printf_with_tag("[output_i2s] ", __VA_ARGS__)
 
-/**************************************************************************************************
- **************************************************************************************************
- **************************************************************************************************/
 // Typedefs and enums
 typedef struct {
 		uint32_t sample_freq;
@@ -33,16 +30,38 @@ I2S_PLL_CONFIG 	i2s_pll_configurations[] = {
 #define PLL_CONFIGURATIONS_COUNT  		(sizeof(i2s_pll_configurations)/sizeof(I2S_PLL_CONFIG))
 
 // Output buffers
-#define	OUTPUT_BUFFER_SIZE		1000UL
-uint32_t output_buffer[OUTPUT_BUFFER_SIZE];
+#define DMA_BUFFERS_SIZE	48
+uint32_t dma_buffers[2][DMA_BUFFERS_SIZE] = {
+	{
+		0x8000,0x90b5,0xa120,0xb0fb,0xbfff,0xcdeb,0xda82,0xe58c,
+		0xeed9,0xf641,0xfba2,0xfee7,0xffff,0xfee7,0xfba2,0xf641,
+		0xeed9,0xe58c,0xda82,0xcdeb,0xbfff,0xb0fb,0xa120,0x90b5,
+		0x8000,0x6f4a,0x5edf,0x4f04,0x4000,0x3214,0x257d,0x1a73,
+		0x1126,0x9be,0x45d,0x118,0x0,0x118,0x45d,0x9be,
+		0x1126,0x1a73,0x257d,0x3214,0x4000,0x4f04,0x5edf,0x6f4a
+	},
+	{
+		0x8000,0x90b5,0xa120,0xb0fb,0xbfff,0xcdeb,0xda82,0xe58c,
+		0xeed9,0xf641,0xfba2,0xfee7,0xffff,0xfee7,0xfba2,0xf641,
+		0xeed9,0xe58c,0xda82,0xcdeb,0xbfff,0xb0fb,0xa120,0x90b5,
+		0x8000,0x6f4a,0x5edf,0x4f04,0x4000,0x3214,0x257d,0x1a73,
+		0x1126,0x9be,0x45d,0x118,0x0,0x118,0x45d,0x9be,
+		0x1126,0x1a73,0x257d,0x3214,0x4000,0x4f04,0x5edf,0x6f4a
+	}
+};
 
 // Macros
 #define I2S3_enable()		do{ SET_BIT(SPI3->I2SCFGR, SPI_I2SCFGR_I2SE);	} while(0)
 #define I2S3_disable()		do{ CLEAR_BIT(SPI3->I2SCFGR, SPI_I2SCFGR_I2SE);	} while(0)
 
-/**************************************************************************************************
- **************************************************************************************************
- **************************************************************************************************/
+/*********************************************************************************************/
+/*		PRIVATE FUNCTIONS
+/*********************************************************************************************/
+
+
+/*********************************************************************************************/
+/*		PUBLIC FUNCTIONS
+/*********************************************************************************************/
 /*
  * Initialize the I2S peripheral
  */
@@ -103,9 +122,10 @@ int output_i2s_init()
 	SET_BIT(DMA1_Stream7->CR, DMA_SxCR_CIRC);
 	MODIFY_REG(DMA1_Stream7->CR, DMA_SxCR_DIR_Msk, 1UL << DMA_SxCR_DIR_Pos);
 	// Set the DMA source and destination addresses
-	DMA1_Stream7->NDTR = OUTPUT_BUFFER_SIZE;
+	DMA1_Stream7->NDTR = DMA_BUFFERS_SIZE;
 	DMA1_Stream7->PAR = (uint32_t) &(SPI3->DR);
-	DMA1_Stream7->M0AR = (uint32_t) output_buffer;
+	DMA1_Stream7->M0AR = (uint32_t) dma_buffers[0];
+	DMA1_Stream7->M1AR = (uint32_t) dma_buffers[1];
 	// Enable DMA's interrupt
 	SET_BIT(DMA1_Stream7->CR, DMA_SxCR_TCIE);
 	NVIC_SetPriority(DMA1_Stream7_IRQn, 0x01);
