@@ -31,24 +31,7 @@ I2S_PLL_CONFIG 	i2s_pll_configurations[] = {
 
 // Output buffers
 #define DMA_BUFFERS_SIZE	48
-uint32_t dma_buffers[2][DMA_BUFFERS_SIZE] = {
-	{
-		0x8000,0x90b5,0xa120,0xb0fb,0xbfff,0xcdeb,0xda82,0xe58c,
-		0xeed9,0xf641,0xfba2,0xfee7,0xffff,0xfee7,0xfba2,0xf641,
-		0xeed9,0xe58c,0xda82,0xcdeb,0xbfff,0xb0fb,0xa120,0x90b5,
-		0x8000,0x6f4a,0x5edf,0x4f04,0x4000,0x3214,0x257d,0x1a73,
-		0x1126,0x9be,0x45d,0x118,0x0,0x118,0x45d,0x9be,
-		0x1126,0x1a73,0x257d,0x3214,0x4000,0x4f04,0x5edf,0x6f4a
-	},
-	{
-		0x8000,0x90b5,0xa120,0xb0fb,0xbfff,0xcdeb,0xda82,0xe58c,
-		0xeed9,0xf641,0xfba2,0xfee7,0xffff,0xfee7,0xfba2,0xf641,
-		0xeed9,0xe58c,0xda82,0xcdeb,0xbfff,0xb0fb,0xa120,0x90b5,
-		0x8000,0x6f4a,0x5edf,0x4f04,0x4000,0x3214,0x257d,0x1a73,
-		0x1126,0x9be,0x45d,0x118,0x0,0x118,0x45d,0x9be,
-		0x1126,0x1a73,0x257d,0x3214,0x4000,0x4f04,0x5edf,0x6f4a
-	}
-};
+int16_t dma_buffers[2][2*DMA_BUFFERS_SIZE];
 
 // Macros
 #define I2S3_enable()		do{ SET_BIT(SPI3->I2SCFGR, SPI_I2SCFGR_I2SE);	} while(0)
@@ -57,7 +40,25 @@ uint32_t dma_buffers[2][DMA_BUFFERS_SIZE] = {
 /*********************************************************************************************/
 /*		PRIVATE FUNCTIONS
 /*********************************************************************************************/
+int32_t sine_look_up_table[] = {
+		0x8000,0x90b5,0xa120,0xb0fb,0xbfff,0xcdeb,0xda82,0xe58c,
+		0xeed9,0xf641,0xfba2,0xfee7,0xffff,0xfee7,0xfba2,0xf641,
+		0xeed9,0xe58c,0xda82,0xcdeb,0xbfff,0xb0fb,0xa120,0x90b5,
+		0x8000,0x6f4a,0x5edf,0x4f04,0x4000,0x3214,0x257d,0x1a73,
+		0x1126,0x9be,0x45d,0x118,0x0,0x118,0x45d,0x9be,
+		0x1126,0x1a73,0x257d,0x3214,0x4000,0x4f04,0x5edf,0x6f4a
+};
 
+#define array_length(_x_)	(sizeof(_x_)/sizeof(_x_[0]))
+
+static void output_i2s_initialize_buffers()
+{
+	uint16_t index;
+	for (index=0; index<array_length(sine_look_up_table); index++) {
+		dma_buffers[0][2*index] = dma_buffers[0][2*index+1] = (int16_t)(sine_look_up_table[index] - 0x8000);
+		dma_buffers[1][2*index] = dma_buffers[1][2*index+1] = (int16_t)(sine_look_up_table[index] - 0x8000);
+	}
+}
 
 /*********************************************************************************************/
 /*		PUBLIC FUNCTIONS
@@ -68,6 +69,8 @@ uint32_t dma_buffers[2][DMA_BUFFERS_SIZE] = {
 int output_i2s_init()
 {
 	int ret_val;
+
+	output_i2s_initialize_buffers();
 
 	// Enable the GPIOB's peripheral clock
 	RCC_GPIOA_CLK_ENABLE();
@@ -93,18 +96,11 @@ int output_i2s_init()
 	MODIFY_REG(GPIOC->OSPEEDR, GPIO_OSPEEDR_OSPEED7_Msk, OSPEEDR_50MHZ << GPIO_OSPEEDR_OSPEED7_Pos);
 
 	// Configure the input clock for the I2S3 peripheral
-	ret_val = output_i2s_ConfigurePLL(44100);
+	ret_val = output_i2s_ConfigurePLL(48000);
 	if (ret_val != 0) {
 		debug_msg("Error in: %s\n", __func__);
 		return ret_val;
 	}
-
-	// Set SPI3 to I2S transmit mode
-	MODIFY_REG(SPI3->I2SCFGR, SPI_I2SCFGR_I2SCFG_Msk, 2UL << SPI_I2SCFGR_I2SCFG_Pos);
-	// Enable the DMA request on I2S3
-	SET_BIT(SPI3->CR2, SPI_CR2_TXDMAEN);
-	// Enable the I2S peripheral
-	I2S3_enable();
 
 	// Configure the DMA (DMA 1, stream 7, channel 0):
 	//	- no peripheral or memory burst modes
@@ -112,17 +108,17 @@ int output_i2s_init()
 	//	- memory data size = 16bit
 	//	- peripheral data size = 16bit
 	//	- memory increment enabled (peripheral one is not!)
-	//	- circular mode (that's ONLY FOR DEBUG!)
+	//	- double buffer mode
 	RCC_DMA1_CLK_ENABLE();
 	MODIFY_REG(DMA1_Stream7->CR, DMA_SxCR_CHSEL_Msk, 0UL << DMA_SxCR_CHSEL_Pos);
 	MODIFY_REG(DMA1_Stream7->CR, DMA_SxCR_PL_Msk, 3UL << DMA_SxCR_PL_Pos);
 	MODIFY_REG(DMA1_Stream7->CR, DMA_SxCR_MSIZE_Msk, 1UL << DMA_SxCR_MSIZE_Pos);
 	MODIFY_REG(DMA1_Stream7->CR, DMA_SxCR_PSIZE_Msk, 1UL << DMA_SxCR_PSIZE_Pos);
 	SET_BIT(DMA1_Stream7->CR, DMA_SxCR_MINC);
-	SET_BIT(DMA1_Stream7->CR, DMA_SxCR_CIRC);
+	SET_BIT(DMA1_Stream7->CR, DMA_SxCR_DBM);
 	MODIFY_REG(DMA1_Stream7->CR, DMA_SxCR_DIR_Msk, 1UL << DMA_SxCR_DIR_Pos);
 	// Set the DMA source and destination addresses
-	DMA1_Stream7->NDTR = DMA_BUFFERS_SIZE;
+	DMA1_Stream7->NDTR = DMA_BUFFERS_SIZE*2;
 	DMA1_Stream7->PAR = (uint32_t) &(SPI3->DR);
 	DMA1_Stream7->M0AR = (uint32_t) dma_buffers[0];
 	DMA1_Stream7->M1AR = (uint32_t) dma_buffers[1];
@@ -152,15 +148,20 @@ int output_i2s_ConfigurePLL(uint32_t samplig_freq)
 		return -1;
 	}
 
+	// Disable the I2S peripheral and also its clock
+	I2S3_disable();
+	RCC_SPI3_CLK_DISABLE();
+	// Disable the I2S's PLL
+	CLEAR_BIT(RCC->CR, RCC_CR_PLLI2SON);
 	// Configure the input PLL
 	MODIFY_REG(RCC->PLLI2SCFGR, RCC_PLLI2SCFGR_PLLI2SR_Msk, i2s_pll_configurations[index].R << RCC_PLLI2SCFGR_PLLI2SR_Pos);
 	MODIFY_REG(RCC->PLLI2SCFGR, RCC_PLLI2SCFGR_PLLI2SN_Msk, i2s_pll_configurations[index].N << RCC_PLLI2SCFGR_PLLI2SN_Pos);
+	// Re-enable the PLL
 	SET_BIT(RCC->CR, RCC_CR_PLLI2SON);
 	while(READ_BIT(RCC->CR, RCC_CR_PLLI2SRDY) == 0);
 
 	// Enable I2S3's peripheral clock
 	RCC_SPI3_CLK_ENABLE();
-
 	// Set the SPI3 peripheral to I2S mode
 	SET_BIT(SPI3->I2SCFGR, SPI_I2SCFGR_I2SMOD);
 	// Configure the I2S's input clock divider
@@ -168,6 +169,12 @@ int output_i2s_ConfigurePLL(uint32_t samplig_freq)
 	MODIFY_REG(SPI3->I2SPR, SPI_I2SPR_ODD_Msk, i2s_pll_configurations[index].ODD << SPI_I2SPR_ODD_Pos);
 	// Output also the MCLK
 	SET_BIT(SPI3->I2SPR, SPI_I2SPR_MCKOE);
+	// Set SPI3 to I2S transmit mode
+	MODIFY_REG(SPI3->I2SCFGR, SPI_I2SCFGR_I2SCFG_Msk, 2UL << SPI_I2SCFGR_I2SCFG_Pos);
+	// Enable the DMA request on I2S3
+	SET_BIT(SPI3->CR2, SPI_CR2_TXDMAEN);
+	// Enable the I2S peripheral
+	I2S3_enable();
 
 	return 0;
 }
@@ -177,6 +184,9 @@ int output_i2s_ConfigurePLL(uint32_t samplig_freq)
  */
 void DMA1_Stream7_IRQHandler(void)
 {
-	DMA1->HIFCR = (DMA_HIFCR_CTCIF7_Msk | DMA_HIFCR_CHTIF7_Msk | DMA_HIFCR_CTEIF7_Msk | DMA_HIFCR_CDMEIF7_Msk | DMA_HIFCR_CFEIF7_Msk);
+	if (DMA1->HISR & (DMA_HISR_TEIF7 | DMA_HISR_DMEIF7)) {
+		debug_msg("Error in DMA transfer\n");
+	}
+	DMA1->HIFCR = (DMA_HIFCR_CTCIF7 | DMA_HIFCR_CHTIF7 | DMA_HIFCR_CTEIF7 | DMA_HIFCR_CDMEIF7 | DMA_HIFCR_CFEIF7);
 }
 

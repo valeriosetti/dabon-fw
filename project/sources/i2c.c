@@ -274,3 +274,18 @@ int32_t i2c_scan_address(uint8_t addr)
 	i2c_send_stop();
 	return 0;
 }
+
+/*
+ *	Scan all the allowed I2C addresses
+ */
+int32_t i2c_scan_peripherals()
+{
+	uint8_t addr;
+	int32_t ret_val;
+	for (addr = 0; addr < 0x7F; addr++) {
+		ret_val = i2c_scan_address(addr);
+		if (ret_val == 0) {
+			debug_msg(">>> peripheral found at address 0x%x <<<\n", addr);
+		}
+	}
+}

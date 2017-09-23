@@ -63,12 +63,14 @@ void main()
 		mp3_player_play(fno.fname);
 	}*/
 	
+	sgtl5000_dump_registers();
+
 	// Timer
 	uint32_t start_tick = systick_get_tick_count();
 	while (1)
 	{
 		while ((systick_get_tick_count()-start_tick) < 1000UL) {};
 		start_tick = systick_get_tick_count();
-		debug_msg("[%d] card inserted = %d\n", systick_get_tick_count(), sd_card_detect_is_card_inserted());
+		//debug_msg("[%d] card inserted = %d\n", systick_get_tick_count(), sd_card_detect_is_card_inserted());
 	}
 }

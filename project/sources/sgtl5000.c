@@ -400,13 +400,13 @@
  */
 int32_t sgtl5000_read_reg(uint16_t reg, uint16_t* value)
 {
-	uint8_t reg_in_bytes[2] = { reg & 0xFF, (reg >> 8) & 0xFF};
+	uint8_t reg_in_bytes[2] = { (reg >> 8) & 0xFF, reg & 0xFF };
 	uint8_t read_bytes[2];
 	int32_t ret_val = 0;
 
-	ret_val = i2c_write_buffer(SGTL5000_I2C_ADDRESS, reg_in_bytes, 2);
+	ret_val = i2c_write_buffer(SGTL5000_I2C_ADDRESS, reg_in_bytes, sizeof(reg_in_bytes));
 	if (ret_val == 0) {
-		ret_val = i2c_read_buffer(SGTL5000_I2C_ADDRESS, read_bytes, 2);
+		ret_val = i2c_read_buffer(SGTL5000_I2C_ADDRESS, read_bytes, sizeof(read_bytes));
 		if (ret_val == 0) {
 			*value = (((uint16_t)read_bytes[0]) << 8) | ((uint16_t)read_bytes[1]);
 			return 0;
@@ -421,16 +421,13 @@ int32_t sgtl5000_read_reg(uint16_t reg, uint16_t* value)
  */
 int32_t sgtl5000_write_reg(uint16_t reg, uint16_t value)
 {
-	uint8_t reg_in_bytes[2] = { reg & 0xFF, (reg >> 8) & 0xFF};
-	uint8_t write_bytes[2] = { value & 0xFF, (value >> 8) & 0xFF};
+	uint8_t write_bytes[4] = { 	(reg >> 8) & 0xFF, reg & 0xFF,
+								(value >> 8) & 0xFF, value & 0xFF };
 	int32_t ret_val = 0;
 
-	ret_val = i2c_write_buffer(SGTL5000_I2C_ADDRESS, reg_in_bytes, 2);
+	ret_val = i2c_write_buffer(SGTL5000_I2C_ADDRESS, write_bytes, sizeof(write_bytes));
 	if (ret_val == 0) {
-		ret_val = i2c_write_buffer(SGTL5000_I2C_ADDRESS, write_bytes, 2);
-		if (ret_val == 0) {
-			return 0;
-		}
+		return 0;
 	}
 	debug_msg("Error in: %s\n", __func__);
 	return ret_val;
@@ -468,7 +465,8 @@ int32_t sgtl5000_power_up()
 	if (ret_val != 0)
 		goto Exit;
 	// Configure the charge pump to use the VDDIO rail (set bit 5 and bit 6) 
-	ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_LINREG_CTRL, SGTL5000_VDDC_MAN_ASSN_MASK | SGTL5000_VDDC_ASSN_OVRD, SGTL5000_VDDC_MAN_ASSN_MASK | SGTL5000_VDDC_ASSN_OVRD);
+	ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_LINREG_CTRL, SGTL5000_VDDC_MAN_ASSN_MASK | SGTL5000_VDDC_ASSN_OVRD,
+									SGTL5000_VDDC_MAN_ASSN_MASK | SGTL5000_VDDC_ASSN_OVRD);
 	if (ret_val != 0)
 		goto Exit;
 	//------ Reference Voltage and Bias Current Configuration----------
@@ -479,10 +477,10 @@ int32_t sgtl5000_power_up()
 	if (ret_val != 0)
 		goto Exit;
 	// Set LINEOUT reference voltage to VDDIO/2 (1.65V) (bits 5:0) and bias current (bits 11:8) to the recommended value of 0.36mA for 10kOhm load with 1nF capacitance 
-	ret_val = sgtl5000_write_reg(SGTL5000_CHIP_LINE_OUT_CTRL, (SGTL5000_LINE_OUT_CURRENT_360u << SGTL5000_LINE_OUT_CURRENT_SHIFT) | 
-															  (((3300/2)-SGTL5000_LINE_OUT_GND_BASE)/SGTL5000_LINE_OUT_GND_STP));
-	if (ret_val != 0)
-		goto Exit;
+	//ret_val = sgtl5000_write_reg(SGTL5000_CHIP_LINE_OUT_CTRL, (SGTL5000_LINE_OUT_CURRENT_360u << SGTL5000_LINE_OUT_CURRENT_SHIFT) |
+	//														  (((3300/2)-SGTL5000_LINE_OUT_GND_BASE)/SGTL5000_LINE_OUT_GND_STP));
+	//if (ret_val != 0)
+	//	goto Exit;
 	//----------------Other Analog Block Configurations------------------
 	// Configure slow ramp up rate to minimize pop (bit 0) 
 	ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_REF_CTRL, SGTL5000_SMALL_POP, SGTL5000_SMALL_POP);
@@ -503,10 +501,10 @@ int32_t sgtl5000_power_up()
 	// Power up LINEOUT, HP, ADC, DAC 
 	ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_ANA_POWER,  SGTL5000_LINE_OUT_POWERUP | SGTL5000_ADC_POWERUP | SGTL5000_CAPLESS_HP_POWERUP | SGTL5000_DAC_POWERUP |
 															SGTL5000_HP_POWERUP | SGTL5000_REFTOP_POWERUP | SGTL5000_ADC_STEREO | SGTL5000_VAG_POWERUP | 
-															SGTL5000_LINEREG_D_POWERUP | SGTL5000_VDDC_CHRGPMP_POWERUP | SGTL5000_LINREG_SIMPLE_POWERUP | SGTL5000_DAC_STEREO,
+															SGTL5000_LINEREG_D_POWERUP | SGTL5000_VDDC_CHRGPMP_POWERUP | SGTL5000_DAC_STEREO,
 															SGTL5000_LINE_OUT_POWERUP | SGTL5000_ADC_POWERUP | SGTL5000_CAPLESS_HP_POWERUP | SGTL5000_DAC_POWERUP |
 															SGTL5000_HP_POWERUP | SGTL5000_REFTOP_POWERUP | SGTL5000_ADC_STEREO | SGTL5000_VAG_POWERUP | 
-															SGTL5000_LINEREG_D_POWERUP | SGTL5000_VDDC_CHRGPMP_POWERUP | SGTL5000_LINREG_SIMPLE_POWERUP | SGTL5000_DAC_STEREO);
+															SGTL5000_LINEREG_D_POWERUP | SGTL5000_VDDC_CHRGPMP_POWERUP | SGTL5000_DAC_STEREO);
 	if (ret_val != 0)
 		goto Exit;
 	// Power up desired digital blocks
@@ -528,6 +526,27 @@ Exit:
 }
 
 /*
+ * Poweroff all the internal supplies
+ */
+int32_t sgtl5000_power_down()
+{
+	int32_t ret_val = 0;
+
+	ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_DIG_POWER, 0xFFFF, 0x0000);
+	if (ret_val != 0)
+			goto Exit;
+
+	ret_val = sgtl5000_write_reg(SGTL5000_CHIP_ANA_POWER, 0x7060);
+	if (ret_val != 0)
+			goto Exit;
+
+	Exit:
+		if (ret_val != 0)
+			debug_msg("Error in: %s\n", __func__);
+		return ret_val;
+}
+
+/*
  * Configure the internal I2S properties:
  * - data length = 16 bits
  * Other default values are fine, therefore they are not changed
@@ -539,11 +558,10 @@ int32_t sgtl5000_configure_i2s()
 {
 	int32_t ret_val = 0;
 	
-	ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_I2S_CTRL, SGTL5000_I2S_DLEN_MASK, SGTL5000_I2S_DLEN_16);
-	
-	Exit:
+	ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_I2S_CTRL, SGTL5000_I2S_DLEN_MASK, SGTL5000_I2S_DLEN_16 << SGTL5000_I2S_DLEN_SHIFT);
 	if (ret_val != 0)  
 		debug_msg("Error in: %s\n", __func__);
+
 	return ret_val;
 }
 
@@ -569,6 +587,12 @@ int32_t sgtl5000_set_ADC_gain(int16_t gain_db)
 	int32_t ret_val = 0;
 	ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_ANA_ADC_CTRL, SGTL5000_ADC_VOL_RIGHT_MASK | SGTL5000_ADC_VOL_LEFT_MASK,
 									(gain_db_reg_val << SGTL5000_ADC_VOL_RIGHT_SHIFT) | (gain_db_reg_val << SGTL5000_ADC_VOL_LEFT_SHIFT));
+	if (ret_val != 0) goto Exit;
+	// Unmute DAC
+	ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_ADCDAC_CTRL, SGTL5000_DAC_MUTE_RIGHT | SGTL5000_DAC_MUTE_LEFT, 0x00);
+	if (ret_val != 0) goto Exit;
+
+Exit:
 	if (ret_val != 0)  
 		debug_msg("Error in: %s\n", __func__);
 	return ret_val;	
@@ -584,13 +608,17 @@ int32_t sgtl5000_config_clocks(uint32_t sample_rate)
 {	
 	switch (sample_rate) {
 		case 32000:
-			return sgtl5000_modify_reg(SGTL5000_CHIP_CLK_CTRL, SGTL5000_SYS_FS_MASK | SGTL5000_MCLK_FREQ_MASK, SGTL5000_SYS_FS_32k | SGTL5000_MCLK_FREQ_256FS);
+			return sgtl5000_modify_reg(SGTL5000_CHIP_CLK_CTRL, SGTL5000_SYS_FS_MASK | SGTL5000_MCLK_FREQ_MASK,
+										(SGTL5000_SYS_FS_32k << SGTL5000_SYS_FS_SHIFT) | SGTL5000_MCLK_FREQ_256FS);
 		case 44100:
-			return sgtl5000_modify_reg(SGTL5000_CHIP_CLK_CTRL, SGTL5000_SYS_FS_MASK | SGTL5000_MCLK_FREQ_MASK, SGTL5000_SYS_FS_44_1k | SGTL5000_MCLK_FREQ_256FS);
+			return sgtl5000_modify_reg(SGTL5000_CHIP_CLK_CTRL, SGTL5000_SYS_FS_MASK | SGTL5000_MCLK_FREQ_MASK,
+										(SGTL5000_SYS_FS_44_1k << SGTL5000_SYS_FS_SHIFT) | SGTL5000_MCLK_FREQ_256FS);
 		case 48000:
-			return sgtl5000_modify_reg(SGTL5000_CHIP_CLK_CTRL, SGTL5000_SYS_FS_MASK | SGTL5000_MCLK_FREQ_MASK, SGTL5000_SYS_FS_48k | SGTL5000_MCLK_FREQ_256FS);
+			return sgtl5000_modify_reg(SGTL5000_CHIP_CLK_CTRL, SGTL5000_SYS_FS_MASK | SGTL5000_MCLK_FREQ_MASK,
+										(SGTL5000_SYS_FS_48k << SGTL5000_SYS_FS_SHIFT) | SGTL5000_MCLK_FREQ_256FS);
 		case 96000:
-			return sgtl5000_modify_reg(SGTL5000_CHIP_CLK_CTRL, SGTL5000_SYS_FS_MASK | SGTL5000_MCLK_FREQ_MASK, SGTL5000_SYS_FS_96k | SGTL5000_MCLK_FREQ_256FS);
+			return sgtl5000_modify_reg(SGTL5000_CHIP_CLK_CTRL, SGTL5000_SYS_FS_MASK | SGTL5000_MCLK_FREQ_MASK,
+										(SGTL5000_SYS_FS_96k << SGTL5000_SYS_FS_SHIFT) | SGTL5000_MCLK_FREQ_256FS);
 		default:
 			debug_msg("Wrong sample rate %d\n", sample_rate);
 			return -1;
@@ -609,20 +637,20 @@ int32_t sgtl5000_set_audio_routing(uint8_t use_dap)
 	
 	if (use_dap == 0) {	// no DAP
 		// set DAC input to I2S_IN
-		ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_SSS_CTRL, SGTL5000_DAC_SEL_MASK, SGTL5000_DAC_SEL_I2S_IN);
+		ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_SSS_CTRL, SGTL5000_DAC_SEL_MASK, SGTL5000_DAC_SEL_I2S_IN << SGTL5000_DAC_SEL_SHIFT);
 		if (ret_val != 0) goto Exit;
 		// set HP_OUT input to DAC
-		ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_ANA_CTRL, SGTL5000_HP_SEL_MASK, 0 << SGTL5000_HP_SEL_SHIFT);
+		ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_ANA_CTRL, SGTL5000_HP_SEL_MASK, SGTL5000_HP_SEL_DAC << SGTL5000_HP_SEL_SHIFT);
 		if (ret_val != 0) goto Exit;
 	} else {
 		// set DAP input to I2S_IN
-		ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_SSS_CTRL, SGTL5000_DAP_SEL_MASK, SGTL5000_DAP_SEL_I2S_IN);
+		ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_SSS_CTRL, SGTL5000_DAP_SEL_MASK, SGTL5000_DAP_SEL_I2S_IN << SGTL5000_DAP_SEL_SHIFT);
 		if (ret_val != 0) goto Exit;
 		// set DAC input to DAP
-		ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_SSS_CTRL, SGTL5000_DAC_SEL_MASK, SGTL5000_DAC_SEL_DAP);
+		ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_SSS_CTRL, SGTL5000_DAC_SEL_MASK, SGTL5000_DAC_SEL_DAP << SGTL5000_DAC_SEL_SHIFT);
 		if (ret_val != 0) goto Exit;
 		// set HP_OUT input to DAC
-		ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_ANA_CTRL, SGTL5000_HP_SEL_MASK, 0 << SGTL5000_HP_SEL_SHIFT);
+		ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_ANA_CTRL, SGTL5000_HP_SEL_MASK, SGTL5000_HP_SEL_DAC << SGTL5000_HP_SEL_SHIFT);
 		if (ret_val != 0) goto Exit;
 	}
 	
@@ -654,6 +682,12 @@ int32_t sgtl5000_set_hp_out_volume(int16_t value)
 	// Write the new value to the register
 	ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_ANA_ADC_CTRL, SGTL5000_ADC_VOL_RIGHT_MASK | SGTL5000_ADC_VOL_LEFT_MASK,
 									(vol_reg_val << SGTL5000_ADC_VOL_RIGHT_SHIFT) | (vol_reg_val << SGTL5000_ADC_VOL_LEFT_SHIFT));
+	if (ret_val != 0) goto Exit;
+	// Unmute headphones
+	ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_ANA_CTRL, SGTL5000_HP_MUTE, 0x00);
+	if (ret_val != 0) goto Exit;
+
+Exit:
 	if (ret_val != 0)  
 		debug_msg("Error in: %s\n", __func__);
 	return ret_val;	
@@ -683,10 +717,16 @@ int32_t sgtl5000_init()
 {
 	int32_t ret_val = 0;
 	
-	// Power up the device
+	// Power cycle the device the device
+	ret_val = sgtl5000_power_down();
+	if (ret_val != 0)
+		return ret_val;
 	ret_val = sgtl5000_power_up();
 	if (ret_val != 0)
 		return ret_val;
+	// wait some time in order to complete powerup (this is not documented on the datasheet,
+	// but it seems to be necessary to have following I2C communications to work)
+	systick_wait_for_ms(5);
 	// Configure the sample frequency
 	ret_val = output_i2s_ConfigurePLL(48000);
 	if (ret_val != 0)
@@ -707,9 +747,52 @@ int32_t sgtl5000_init()
 	if (ret_val != 0)
 		return ret_val;	
 	// Set the HP_OUT volume to 0dB at boot
-	ret_val = sgtl5000_get_hp_out_volume(0);
+	ret_val = sgtl5000_set_hp_out_volume(0);
 	if (ret_val != 0)
 		return ret_val;
 		
 	return ret_val;
 }
+
+/*
+ * Dump all the registers for debug
+ */
+#define dump_single_reg(reg)	\
+	do { \
+		if (sgtl5000_read_reg(reg, &val) == 0)	{ \
+			debug_msg(#reg " = 0x%x\n", val);	\
+		} else {	\
+			debug_msg("Error in function %s\n", __func__);	\
+			return ; \
+		}	\
+	} while(0);
+
+void sgtl5000_dump_registers()
+{
+	uint16_t val;
+
+	dump_single_reg(SGTL5000_CHIP_ID);
+	dump_single_reg(SGTL5000_CHIP_DIG_POWER);
+	dump_single_reg(SGTL5000_CHIP_CLK_CTRL);
+	dump_single_reg(SGTL5000_CHIP_I2S_CTRL);
+	dump_single_reg(SGTL5000_CHIP_SSS_CTRL);
+	dump_single_reg(SGTL5000_CHIP_ADCDAC_CTRL);
+	dump_single_reg(SGTL5000_CHIP_DAC_VOL);
+	dump_single_reg(SGTL5000_CHIP_PAD_STRENGTH);
+	dump_single_reg(SGTL5000_CHIP_ANA_ADC_CTRL);
+	dump_single_reg(SGTL5000_CHIP_ANA_HP_CTRL);
+	dump_single_reg(SGTL5000_CHIP_ANA_CTRL);
+	dump_single_reg(SGTL5000_CHIP_LINREG_CTRL);
+	dump_single_reg(SGTL5000_CHIP_REF_CTRL);
+	dump_single_reg(SGTL5000_CHIP_MIC_CTRL);
+	dump_single_reg(SGTL5000_CHIP_LINE_OUT_CTRL);
+	dump_single_reg(SGTL5000_CHIP_LINE_OUT_VOL);
+	dump_single_reg(SGTL5000_CHIP_ANA_POWER);
+	dump_single_reg(SGTL5000_CHIP_PLL_CTRL);
+	dump_single_reg(SGTL5000_CHIP_CLK_TOP_CTRL);
+	dump_single_reg(SGTL5000_CHIP_ANA_STATUS);
+	dump_single_reg(SGTL5000_CHIP_SHORT_CTRL);
+	dump_single_reg(SGTL5000_CHIP_ANA_TEST2);
+}
+
+#undef dump_single_reg

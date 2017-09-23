@@ -105,6 +105,8 @@ int ClockConfig_SetMainClockAndPrescalers(void);
                                         UNUSED(tmpreg); \
                                       } while(0U)
 
+#define RCC_SPI3_CLK_DISABLE()   (RCC->APB1ENR &= ~(RCC_APB1ENR_SPI3EN))
+
 #define RCC_SPI1_CLK_ENABLE()     do { \
                                         __IO uint32_t tmpreg = 0x00U; \
                                         SET_BIT(RCC->APB2ENR, RCC_APB2ENR_SPI1EN);\

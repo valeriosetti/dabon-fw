@@ -8,6 +8,9 @@ int32_t i2c_write_buffer(uint8_t addr, uint8_t* data, uint8_t length);
 int32_t i2c_read_buffer(uint8_t addr, uint8_t *data, uint8_t length);
 int32_t i2c_write_byte(uint8_t addr, uint8_t data);
 int32_t i2c_read_byte(uint8_t addr, uint8_t* data);
+
+// Debug functions
 int32_t i2c_scan_address(uint8_t addr);
+int32_t i2c_scan_peripherals(void);
 
 #endif /* _I2C_H_ */
