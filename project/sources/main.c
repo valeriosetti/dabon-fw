@@ -6,7 +6,7 @@
 #include "output_i2s.h"
 #include "spi.h"
 #include "timer.h"
-#include "tuner.h"
+#include "Si468x.h"
 #include "fsmc.h"
 #include "oled.h"
 #include "sd_card.h"
@@ -35,11 +35,12 @@ void HW_init()
 
 	// Peripherals
 	eeprom_init();
-	tuner_init();
+	Si468x_init();
 	sgtl5000_init();
 	oled_init();
 	debug_msg("Initialization completed\n");
 }
+
 
 /*
  *	System's main function
