@@ -667,7 +667,7 @@ static int Si468x_start_dab()
 	Si468x_dab_set_property(SI468X_PROP_DAB_CTRL_DAB_MUTE_ENABLE, 0x0000);
 	Si468x_dab_set_property(SI468X_PROP_DAB_DIGRAD_INTERRUPT_SOURCE, 0x0001);
 	Si468x_dab_set_property(SI468X_PROP_DAB_TUNE_FE_CFG, 0x0001);
-	Si468x_dab_set_property(SI468X_PROP_DAB_TUNE_FE_VARM, 10);
+	Si468x_dab_set_property(SI468X_PROP_DAB_TUNE_FE_VARM, 120);
 	Si468x_dab_set_property(SI468X_PROP_DAB_TUNE_FE_VARB, 10);
 	Si468x_dab_set_property(SI468X_PROP_PIN_CONFIG_ENABLE, 0x0003);
 	Si468x_dab_set_property(SI468X_PROP_DAB_VALID_DETECT_TIME, 2000);
