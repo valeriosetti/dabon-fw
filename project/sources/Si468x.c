@@ -150,7 +150,7 @@ static int Si468x_fm_tune_freq(uint16_t freq);
 // Properties
 #define SI468X_XTAL_FREQ						19200000L
 #define SI468X_XTAL_CL							10	// in pF - that's taken from the crystal's datasheet!
-#define SI468X_XTAL_STARTUP_BIAS_CURRENT		1200	// in uA
+#define SI468X_XTAL_STARTUP_BIAS_CURRENT		800	// in uA
 												// See AN649 at section 9.1.5. It was assumed that:
 												// 	- CL=10pF
 												//	- startup ESR = 5 x run ESR = 5 x 70ohm = 350ohm (max)
@@ -662,8 +662,6 @@ static int Si468x_start_dab()
 
 	Si468x_get_part_info(&Si468x_info_part);
 
-	Si468x_dab_set_freq_list();
-
 	Si468x_dab_set_property(SI468X_PROP_DAB_CTRL_DAB_MUTE_SIGNAL_LEVEL_THRESHOLD, 0x0000);
 	Si468x_dab_set_property(SI468X_PROP_DAB_CTRL_DAB_MUTE_SIGLOW_THRESHOLD, 0x0000);
 	Si468x_dab_set_property(SI468X_PROP_DAB_CTRL_DAB_MUTE_ENABLE, 0x0000);
@@ -680,21 +678,15 @@ static int Si468x_start_dab()
 
 	Si468x_dab_get_freq_list(&Si468x_freq_list);
 
-//	for(actual_freq = 33; actual_freq < Si468x_freq_list.num_freqs; actual_freq++)
-//	{
-//		debug_msg("Setting tune frequency to: %u\n", actual_freq);
-//
-//		Si468x_dab_tune_freq(actual_freq, AUTOMATIC, 0);
-//
-//		Si468x_dab_digrad_status(1, 0, 1, &Si468x_DAB_status);
-//	}
-
-	while(1)
+	for(actual_freq = 0; actual_freq < Si468x_freq_list.num_freqs; actual_freq++)
 	{
-		Si468x_dab_tune_freq(0, HIGH_SIDE, 0);
+		debug_msg("Setting tune frequency to: %u\n", actual_freq);
+
+		Si468x_dab_tune_freq(actual_freq, AUTOMATIC, 0);
 
 		Si468x_dab_digrad_status(1, 0, 1, &Si468x_DAB_status);
 	}
+
 
 	//Si468x_get_digital_service_list();
 
