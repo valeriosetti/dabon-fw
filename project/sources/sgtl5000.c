@@ -462,62 +462,38 @@ int32_t sgtl5000_power_up()
 	
 	// Turn off startup power supplies to save power
 	ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_ANA_POWER, SGTL5000_STARTUP_POWERUP | SGTL5000_LINREG_SIMPLE_POWERUP, 0x0);
-	if (ret_val != 0)
-		goto Exit;
+	if (ret_val != 0) goto Exit;
 	// Configure the charge pump to use the VDDIO rail (set bit 5 and bit 6) 
 	ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_LINREG_CTRL, SGTL5000_VDDC_MAN_ASSN_MASK | SGTL5000_VDDC_ASSN_OVRD,
 									SGTL5000_VDDC_MAN_ASSN_MASK | SGTL5000_VDDC_ASSN_OVRD);
-	if (ret_val != 0)
-		goto Exit;
+	if (ret_val != 0) goto Exit;
 	//------ Reference Voltage and Bias Current Configuration----------
 	// NOTE: The value written in the next 2 Write calls is dependent on the VDDA voltage value.
 	// Set ground, ADC, DAC reference voltage (bits 8:4). The value should be set to VDDA/2. This example assumes VDDA = 1.8V. VDDA/2 = 0.9V.
-	// The bias current should be set to 50% of the nominal value (bits 3:1)
-	ret_val = sgtl5000_write_reg(SGTL5000_CHIP_REF_CTRL, (0x1F << SGTL5000_ANA_GND_SHIFT) | (0x7 << SGTL5000_BIAS_CTRL_SHIFT));
-	if (ret_val != 0)
-		goto Exit;
-	// Set LINEOUT reference voltage to VDDIO/2 (1.65V) (bits 5:0) and bias current (bits 11:8) to the recommended value of 0.36mA for 10kOhm load with 1nF capacitance 
-	//ret_val = sgtl5000_write_reg(SGTL5000_CHIP_LINE_OUT_CTRL, (SGTL5000_LINE_OUT_CURRENT_360u << SGTL5000_LINE_OUT_CURRENT_SHIFT) |
-	//														  (((3300/2)-SGTL5000_LINE_OUT_GND_BASE)/SGTL5000_LINE_OUT_GND_STP));
-	//if (ret_val != 0)
-	//	goto Exit;
+	// Configure slow ramp up rate to minimize pop (bit 0)
+	ret_val = sgtl5000_write_reg(SGTL5000_CHIP_REF_CTRL, (0x1F << SGTL5000_ANA_GND_SHIFT) | SGTL5000_SMALL_POP);
+	if (ret_val != 0) goto Exit;
 	//----------------Other Analog Block Configurations------------------
-	// Configure slow ramp up rate to minimize pop (bit 0) 
-	ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_REF_CTRL, SGTL5000_SMALL_POP, SGTL5000_SMALL_POP);
-	if (ret_val != 0)
-		goto Exit;
 	// Enable short detect mode for headphone left/right and center channel and set short detect current trip level to 75mA
-	ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_SHORT_CTRL, SGTL5000_LVLADJR_MASK | SGTL5000_LVLADJL_MASK | SGTL5000_LVLADJC_MASK | 
+	ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_SHORT_CTRL, SGTL5000_LVLADJR_MASK | SGTL5000_LVLADJL_MASK | SGTL5000_LVLADJC_MASK |
 									SGTL5000_LR_SHORT_MOD_MASK | SGTL5000_CM_SHORT_MOD_MASK, 
-									(1<<SGTL5000_LVLADJR_SHIFT) | (1<<SGTL5000_LVLADJL_SHIFT) | (0<<SGTL5000_LVLADJC_SHIFT) | 
+									(7<<SGTL5000_LVLADJR_SHIFT) | (7<<SGTL5000_LVLADJL_SHIFT) | (7<<SGTL5000_LVLADJC_SHIFT) |
 									(1<<SGTL5000_LR_SHORT_MOD_SHIFT) | (2<<SGTL5000_CM_SHORT_MOD_SHIFT) );
-	if (ret_val != 0)
-		goto Exit;
-	// Enable Zero-cross detect if needed for HP_OUT (bit 5) and ADC (bit 1) 
-	ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_ANA_CTRL, SGTL5000_HP_ZCD_EN | SGTL5000_ADC_ZCD_EN, SGTL5000_HP_ZCD_EN | SGTL5000_ADC_ZCD_EN);
-	if (ret_val != 0)
-		goto Exit;
+	if (ret_val != 0) goto Exit;
 	//----------------Power up Inputs/Outputs/Digital Blocks-------------
 	// Power up LINEOUT, HP, ADC, DAC 
-	ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_ANA_POWER,  SGTL5000_LINE_OUT_POWERUP | SGTL5000_ADC_POWERUP | SGTL5000_CAPLESS_HP_POWERUP | SGTL5000_DAC_POWERUP |
+	ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_ANA_POWER,  SGTL5000_ADC_POWERUP | SGTL5000_DAC_POWERUP |
 															SGTL5000_HP_POWERUP | SGTL5000_REFTOP_POWERUP | SGTL5000_ADC_STEREO | SGTL5000_VAG_POWERUP | 
-															SGTL5000_LINEREG_D_POWERUP | SGTL5000_VDDC_CHRGPMP_POWERUP | SGTL5000_DAC_STEREO,
-															SGTL5000_LINE_OUT_POWERUP | SGTL5000_ADC_POWERUP | SGTL5000_CAPLESS_HP_POWERUP | SGTL5000_DAC_POWERUP |
+															SGTL5000_DAC_STEREO,
+															SGTL5000_ADC_POWERUP | SGTL5000_DAC_POWERUP |
 															SGTL5000_HP_POWERUP | SGTL5000_REFTOP_POWERUP | SGTL5000_ADC_STEREO | SGTL5000_VAG_POWERUP | 
-															SGTL5000_LINEREG_D_POWERUP | SGTL5000_VDDC_CHRGPMP_POWERUP | SGTL5000_DAC_STEREO);
-	if (ret_val != 0)
-		goto Exit;
+															SGTL5000_DAC_STEREO);
+	if (ret_val != 0) goto Exit;
 	// Power up desired digital blocks
 	// I2S_IN (bit 0), I2S_OUT (bit 1), DAP (bit 4), DAC (bit 5), ADC (bit 6) are powered on
-	ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_DIG_POWER, SGTL5000_ADC_EN | SGTL5000_DAC_EN | SGTL5000_DAP_POWERUP | SGTL5000_I2S_OUT_POWERUP | SGTL5000_I2S_IN_POWERUP,
-															SGTL5000_ADC_EN | SGTL5000_DAC_EN | SGTL5000_DAP_POWERUP | SGTL5000_I2S_OUT_POWERUP | SGTL5000_I2S_IN_POWERUP);
-	if (ret_val != 0)
-		goto Exit;
-	//--------------------Set LINEOUT Volume Level-----------------------
-	// Set the LINEOUT volume level based on voltage reference (VAG) values using this formula
-	// Value = (int)(40*log(VAG_VAL/LO_VAGCNTRL) + 15)
-	ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_LINE_OUT_VOL, SGTL5000_LINE_OUT_VOL_RIGHT_MASK | SGTL5000_LINE_OUT_VOL_LEFT_MASK,
-									(0xF << SGTL5000_LINE_OUT_VOL_RIGHT_SHIFT) | (0xF << SGTL5000_LINE_OUT_VOL_LEFT_SHIFT));
+	ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_DIG_POWER, SGTL5000_ADC_EN | SGTL5000_DAC_EN | SGTL5000_DAP_POWERUP | SGTL5000_I2S_IN_POWERUP,
+															SGTL5000_ADC_EN | SGTL5000_DAC_EN | SGTL5000_DAP_POWERUP | SGTL5000_I2S_IN_POWERUP);
+	if (ret_val != 0) goto Exit;
 	
 Exit:
 	if (ret_val != 0) 
@@ -533,12 +509,10 @@ int32_t sgtl5000_power_down()
 	int32_t ret_val = 0;
 
 	ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_DIG_POWER, 0xFFFF, 0x0000);
-	if (ret_val != 0)
-			goto Exit;
+	if (ret_val != 0) goto Exit;
 
 	ret_val = sgtl5000_write_reg(SGTL5000_CHIP_ANA_POWER, 0x7060);
-	if (ret_val != 0)
-			goto Exit;
+	if (ret_val != 0) goto Exit;
 
 	Exit:
 		if (ret_val != 0)
@@ -626,32 +600,40 @@ int32_t sgtl5000_config_clocks(uint32_t sample_rate)
 }
 
 /*
- * Select the internal routing of the SGTL5000. 
- * Note: for now the routing is fixed
- * 		I2S_IN --> DAC --> HP_OUT
- * This should be changed in the future in case DAP (digital audio processor) becomes necessary
+ * Select the internal routing of the SGTL5000
  */
-int32_t sgtl5000_set_audio_routing(uint8_t use_dap)
+int32_t sgtl5000_set_audio_routing(uint8_t configuration)
 {
 	int32_t ret_val = 0;
 	
-	if (use_dap == 0) {	// no DAP
-		// set DAC input to I2S_IN
-		ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_SSS_CTRL, SGTL5000_DAC_SEL_MASK, SGTL5000_DAC_SEL_I2S_IN << SGTL5000_DAC_SEL_SHIFT);
-		if (ret_val != 0) goto Exit;
-		// set HP_OUT input to DAC
-		ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_ANA_CTRL, SGTL5000_HP_SEL_MASK, SGTL5000_HP_SEL_DAC << SGTL5000_HP_SEL_SHIFT);
-		if (ret_val != 0) goto Exit;
-	} else {
-		// set DAP input to I2S_IN
-		ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_SSS_CTRL, SGTL5000_DAP_SEL_MASK, SGTL5000_DAP_SEL_I2S_IN << SGTL5000_DAP_SEL_SHIFT);
-		if (ret_val != 0) goto Exit;
-		// set DAC input to DAP
-		ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_SSS_CTRL, SGTL5000_DAC_SEL_MASK, SGTL5000_DAC_SEL_DAP << SGTL5000_DAC_SEL_SHIFT);
-		if (ret_val != 0) goto Exit;
-		// set HP_OUT input to DAC
-		ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_ANA_CTRL, SGTL5000_HP_SEL_MASK, SGTL5000_HP_SEL_DAC << SGTL5000_HP_SEL_SHIFT);
-		if (ret_val != 0) goto Exit;
+	switch (configuration) {
+		case AUDIO_ROUTING_LINE_IN_to_HP_OUT:
+			// LINE_IN --> HP_OUT
+			ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_ANA_CTRL, SGTL5000_HP_SEL_MASK, SGTL5000_HP_SEL_LINE_IN << SGTL5000_HP_SEL_SHIFT);
+			if (ret_val != 0) goto Exit;
+			break;
+		case AUDIO_ROUTING_I2S_IN_to_HP_OUT:
+			// I2S_IN --> DAC
+			ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_SSS_CTRL, SGTL5000_DAC_SEL_MASK, SGTL5000_DAC_SEL_I2S_IN << SGTL5000_DAC_SEL_SHIFT);
+			if (ret_val != 0) goto Exit;
+			break;
+			// DAC --> HP_OUT
+			ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_ANA_CTRL, SGTL5000_HP_SEL_MASK, SGTL5000_HP_SEL_DAC << SGTL5000_HP_SEL_SHIFT);
+			if (ret_val != 0) goto Exit;
+		case AUDIO_ROUTING_I2S_IN_to_DAP_to_HP_OUT:
+			// I2S_IN --> DAP
+			ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_SSS_CTRL, SGTL5000_DAP_SEL_MASK, SGTL5000_DAP_SEL_I2S_IN << SGTL5000_DAP_SEL_SHIFT);
+			if (ret_val != 0) goto Exit;
+			// DAP --> DAC
+			ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_SSS_CTRL, SGTL5000_DAC_SEL_MASK, SGTL5000_DAC_SEL_DAP << SGTL5000_DAC_SEL_SHIFT);
+			if (ret_val != 0) goto Exit;
+			// DAC --> HP_OUT
+			ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_ANA_CTRL, SGTL5000_HP_SEL_MASK, SGTL5000_HP_SEL_DAC << SGTL5000_HP_SEL_SHIFT);
+			if (ret_val != 0) goto Exit;
+			break;
+		default:
+			debug_msg("Wrong routing configuration: %d\n", configuration, __func__);
+			ret_val = -1;
 	}
 	
 Exit:
@@ -717,16 +699,17 @@ int32_t sgtl5000_init()
 {
 	int32_t ret_val = 0;
 	
-	// Power cycle the device the device
+	// Power cycle the device
 	ret_val = sgtl5000_power_down();
 	if (ret_val != 0)
 		return ret_val;
+	// wait some time
+	systick_wait_for_ms(10);
 	ret_val = sgtl5000_power_up();
 	if (ret_val != 0)
 		return ret_val;
-	// wait some time in order to complete powerup (this is not documented on the datasheet,
-	// but it seems to be necessary to have following I2C communications to work)
-	systick_wait_for_ms(5);
+	// wait some time
+	systick_wait_for_ms(10);
 	// Configure the sample frequency
 	ret_val = output_i2s_ConfigurePLL(48000);
 	if (ret_val != 0)
@@ -734,8 +717,8 @@ int32_t sgtl5000_init()
 	ret_val = sgtl5000_config_clocks(48000);
 	if (ret_val != 0)
 		return ret_val;
-	// Configure the internal audio routing (no DAP)
-	ret_val = sgtl5000_set_audio_routing(FALSE);
+	// Configure the internal audio routing
+	ret_val = sgtl5000_set_audio_routing(AUDIO_ROUTING_LINE_IN_to_HP_OUT);
 	if (ret_val != 0)
 		return ret_val;
 	// Configure the I2S data format
@@ -762,8 +745,7 @@ int32_t sgtl5000_init()
 		if (sgtl5000_read_reg(reg, &val) == 0)	{ \
 			debug_msg(#reg " = 0x%x\n", val);	\
 		} else {	\
-			debug_msg("Error in function %s\n", __func__);	\
-			return ; \
+			debug_msg("Error reading reg " #reg " \n");	\
 		}	\
 	} while(0);
 

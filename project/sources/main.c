@@ -35,7 +35,7 @@ void HW_init()
 
 	// Peripherals
 	eeprom_init();
-	Si468x_init();
+	//Si468x_init();
 	sgtl5000_init();
 	oled_init();
 	debug_msg("Initialization completed\n");
@@ -72,6 +72,6 @@ void main()
 	{
 		while ((systick_get_tick_count()-start_tick) < 1000UL) {};
 		start_tick = systick_get_tick_count();
-		//debug_msg("[%d] card inserted = %d\n", systick_get_tick_count(), sd_card_detect_is_card_inserted());
+		debug_msg("current time = %d\n", systick_get_tick_count());
 	}
 }
