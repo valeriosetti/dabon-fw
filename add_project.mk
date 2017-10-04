@@ -21,5 +21,6 @@ SRCS += $(PROJECT_PATH)/sources/mp3_player.c
 SRCS += $(PROJECT_PATH)/sources/sgtl5000.c
 SRCS += $(PROJECT_PATH)/sources/shell.c
 SRCS += $(PROJECT_PATH)/sources/utils.c
+SRCS += $(PROJECT_PATH)/sources/buttons.c
 				
 INCS += -I$(PROJECT_PATH)/includes

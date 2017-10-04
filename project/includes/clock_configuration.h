@@ -139,4 +139,12 @@ int ClockConfig_SetMainClockAndPrescalers(void);
                                         UNUSED(tmpreg); \
                                       } while(0U)
 
+#define RCC_SYSCFG_CLK_ENABLE()   do { \
+                                        __IO uint32_t tmpreg = 0x00U; \
+                                        SET_BIT(RCC->APB2ENR, RCC_APB2ENR_SYSCFGEN);\
+                                        /* Delay after an RCC peripheral clock enabling */ \
+                                        tmpreg = READ_BIT(RCC->APB2ENR, RCC_APB2ENR_SYSCFGEN);\
+                                        UNUSED(tmpreg); \
+                                      } while(0U)
+
 #endif /* _CLOCK_CONFIGURATIONS_H_ */

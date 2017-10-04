@@ -3,6 +3,7 @@
 #include "sd_card.h"
 #include "output_i2s.h"
 #include "uart.h"
+#include "buttons.h"
 
 // The following symbols are defined in the linker script
 extern uint32_t _sidata;
@@ -67,11 +68,11 @@ void TAMP_STAMP_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void RTC_WKUP_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void FLASH_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void RCC_IRQHandler(void) __attribute((weak, alias("default_handler")));
-void EXTI0_IRQHandler(void) __attribute((weak, alias("default_handler")));
-void EXTI1_IRQHandler(void) __attribute((weak, alias("default_handler")));
+//void EXTI0_IRQHandler(void) __attribute((weak, alias("default_handler")));
+//void EXTI1_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void EXTI2_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void EXTI3_IRQHandler(void) __attribute((weak, alias("default_handler")));
-void EXTI4_IRQHandler(void) __attribute((weak, alias("default_handler")));
+//void EXTI4_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void DMA1_Stream0_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void DMA1_Stream1_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void DMA1_Stream2_IRQHandler(void) __attribute((weak, alias("default_handler")));
@@ -84,7 +85,7 @@ void CAN1_TX_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void CAN1_RX0_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void CAN1_RX1_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void CAN1_SCE_IRQHandler(void) __attribute((weak, alias("default_handler")));
-void EXTI9_5_IRQHandler(void) __attribute((weak, alias("default_handler")));
+//void EXTI9_5_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void TIM1_BRK_TIM9_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void TIM1_UP_TIM10_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void TIM1_TRG_COM_TIM11_IRQHandler(void) __attribute((weak, alias("default_handler")));
@@ -101,7 +102,7 @@ void SPI2_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void USART1_IRQHandler(void) __attribute((weak, alias("default_handler")));
 //void USART2_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void USART3_IRQHandler(void) __attribute((weak, alias("default_handler")));
-void EXTI15_10_IRQHandler(void) __attribute((weak, alias("default_handler")));
+//void EXTI15_10_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void RTC_Alarm_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void OTG_FS_WKUP_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void TIM8_BRK_TIM12_IRQHandler(void) __attribute((weak, alias("default_handler")));

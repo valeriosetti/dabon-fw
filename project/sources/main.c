@@ -16,6 +16,7 @@
 #include "mp3dec.h"
 #include "sgtl5000.h"
 #include "shell.h"
+#include "buttons.h"
 
 #define debug_msg(...)		debug_printf_with_tag("[Main] ", __VA_ARGS__)
 
@@ -33,6 +34,7 @@ void HW_init()
 	fsmc_init();
 	SD_Init();
 	systick_initialize();
+	buttons_init();
 
 	// Peripherals
 	eeprom_init();
@@ -64,8 +66,6 @@ void main()
 		res = f_readdir(&dir, &fno);
 		mp3_player_play(fno.fname);
 	}*/
-	
-	sgtl5000_dump_registers();
 
 	// Timer
 	uint32_t start_tick = systick_get_tick_count();

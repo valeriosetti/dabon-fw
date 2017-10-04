@@ -4,6 +4,8 @@
 #include "Si468x.h"
 #include "systick.h"
 #include "utils.h"
+#include "sgtl5000.h"
+#include "buttons.h"
 
 #define debug_msg(...)		debug_printf_with_tag("[shell] ", __VA_ARGS__)
 
@@ -13,7 +15,7 @@ uint8_t command_buffer[COMMAND_LINE_MAX_LENGTH];
 uint16_t cmd_buff_pos = 0;
 uint8_t cmd_complete_flag = 0;
 
-static int shell_test_cmd(int argc, char *argv[]);
+static int shell_list_commands(int argc, char *argv[]);
 
 typedef struct {
     char* cmd_name;
@@ -21,10 +23,13 @@ typedef struct {
 } SINGLE_SHELL_CMD;
 
 SINGLE_SHELL_CMD shell_cmd_list[] = {
-    {"shell_test", shell_test_cmd},
+    {"list_cmds", shell_list_commands},
     {"fm_tune", fm_tune},
     {"systick_gettime", systick_gettime},
     {"reset", reset},
+    {"set_hp_out_volume", set_hp_out_volume},
+    {"sgtl5000_dump_registers", sgtl5000_dump_registers},
+    {"buttons_scan", buttons_scan},
 	{}// do not remove this empty cell!!
 };
 
@@ -122,7 +127,11 @@ void shell_run()
 /*
  * Simple test function for testing shell commands
  */ 
-static int shell_test_cmd(int argc, char *argv[])
+static int shell_list_commands(int argc, char *argv[])
 {
-    debug_printf(">> shell is working! <<\n");
+	SINGLE_SHELL_CMD* curr_cmd = shell_cmd_list;
+	while (curr_cmd->cmd_name != NULL) {
+		debug_printf("%s\n", curr_cmd->cmd_name);
+		curr_cmd++; // move to the next command
+	}
 }
