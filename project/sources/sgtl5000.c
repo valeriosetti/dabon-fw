@@ -662,8 +662,8 @@ int32_t sgtl5000_set_hp_out_volume(int16_t value)
 	// Convert the input value to a valid register value
 	uint16_t vol_reg_val = ((uint16_t)(SGTL5000_MAX_HP_OUT_VOLUME-value))/SGTL5000_HP_OUT_VOLUME_STEP;
 	// Write the new value to the register
-	ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_ANA_ADC_CTRL, SGTL5000_ADC_VOL_RIGHT_MASK | SGTL5000_ADC_VOL_LEFT_MASK,
-									(vol_reg_val << SGTL5000_ADC_VOL_RIGHT_SHIFT) | (vol_reg_val << SGTL5000_ADC_VOL_LEFT_SHIFT));
+	ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_ANA_HP_CTRL, SGTL5000_HP_VOL_RIGHT_MASK | SGTL5000_HP_VOL_LEFT_MASK,
+									(vol_reg_val << SGTL5000_HP_VOL_RIGHT_SHIFT) | (vol_reg_val << SGTL5000_HP_VOL_LEFT_SHIFT));
 	if (ret_val != 0) goto Exit;
 	// Unmute headphones
 	ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_ANA_CTRL, SGTL5000_HP_MUTE, 0x00);
@@ -749,7 +749,7 @@ int32_t sgtl5000_init()
 		}	\
 	} while(0);
 
-void sgtl5000_dump_registers()
+int sgtl5000_dump_registers(int argc, char *argv[])
 {
 	uint16_t val;
 
@@ -778,3 +778,11 @@ void sgtl5000_dump_registers()
 }
 
 #undef dump_single_reg
+
+/*
+ * Shell command for setting hp_out volume
+ */
+int set_hp_out_volume(int argc, char *argv[])
+{
+    return sgtl5000_set_hp_out_volume(atoi(argv[0]));
+}

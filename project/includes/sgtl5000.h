@@ -29,6 +29,8 @@ int32_t sgtl5000_set_audio_routing(uint8_t use_dap);
 int32_t sgtl5000_set_hp_out_volume(int16_t value);
 int32_t sgtl5000_get_hp_out_volume(int16_t* value);
 
-void sgtl5000_dump_registers(void);
+
+int sgtl5000_dump_registers(int argc, char *argv[]);
+int set_hp_out_volume(int argc, char *argv[]);
 
 #endif // _SGTL5000_H_
