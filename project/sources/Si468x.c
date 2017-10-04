@@ -51,8 +51,10 @@ static int Si468x_dab_set_freq_list(void);
 static int Si468x_dab_set_property(uint16_t property, uint16_t value);
 
 // FM
+#if defined(FM_RADIO)
 static int Si468x_start_fm(void);
 static int Si468x_fm_tune_freq(uint16_t freq);
+#endif
 
 // List of commands for DAB mode
 #define SI468X_CMD_RD_REPLY								0x00
@@ -161,10 +163,15 @@ uint8_t data_out[IN_OUT_BUFF_SIZE];
 uint8_t data_in[IN_OUT_BUFF_SIZE];
 
 // Tuner's firmware
-//extern uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_start;
-//extern uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_end;
-extern uint8_t _binary___external_firmwares_dab_radio_5_0_5_bin_start;
-extern uint8_t _binary___external_firmwares_dab_radio_5_0_5_bin_end;
+#if defined(DAB_RADIO)
+	extern uint8_t _binary___external_firmwares_dab_radio_5_0_5_bin_start;
+	extern uint8_t _binary___external_firmwares_dab_radio_5_0_5_bin_end;
+#elif defined(FM_RADIO)
+	extern uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_start;
+	extern uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_end;
+#else
+	#error Wrong tuner firmware. It should be either DAB_RADIO or FM_RADIO
+#endif
 extern uint8_t _binary___external_firmwares_rom00_patch_016_bin_start;
 extern uint8_t _binary___external_firmwares_rom00_patch_016_bin_end;
 
@@ -179,8 +186,6 @@ extern uint8_t _binary___external_firmwares_rom00_patch_016_bin_end;
 #define STATUS0_DACQINT				0x20
 #define STATUS0_ERRCMD				0x40
 #define STATUS0_CTS					0x80
-
-
 
 /********************************************************************************
  * BASIC FUNCTIONS
@@ -202,8 +207,11 @@ void Si468x_init()
 	MODIFY_REG(GPIOD->MODER, GPIO_MODER_MODE6_Msk, MODER_INPUT << GPIO_MODER_MODE6_Pos);
 	MODIFY_REG(GPIOD->PUPDR, GPIO_PUPDR_PUPD6_Msk, PUPDR_PULL_UP << GPIO_PUPDR_PUPD6_Pos);
 
-	Si468x_start_dab();
-	//Si468x_start_fm();
+	#if defined(DAB_RADIO)
+		Si468x_start_dab();
+	#elif defined(FM_RADIO)
+		Si468x_start_fm();
+	#endif
 }
 
 /*
@@ -628,6 +636,7 @@ void Si468x_wait_for_stcint(Si468x_wait_type type)
 	}
 }
 
+#ifdef DAB_RADIO
 /*
  *
  */
@@ -692,11 +701,11 @@ static int Si468x_start_dab()
 
 	return SI468X_SUCCESS;
 }
-
+#else 
 /*
  *
  */
-/*static int Si468x_start_fm()
+static int Si468x_start_fm()
 {
 	uint8_t actual_freq;
 
@@ -748,7 +757,8 @@ static int Si468x_start_dab()
 	}
 
 	return SI468X_SUCCESS;
-}*/
+}
+#endif
 
 /*
  *

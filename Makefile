@@ -1,3 +1,7 @@
+# The following option selects which firmware will be loaded into the
+# tuner. Allowed options are "FM_RADIO" and "DAB_RADIO"  
+TUNER_CONFIG=FM_RADIO
+
 # Include project's sources and includes
 include ./add_project.mk
 include ./add_ST.mk
@@ -11,11 +15,12 @@ DEVICE_TYPE = STM32F407xx
 OUT_PATH = ./build
 OBJ_PATH = ./build/objs
 
-# 
+# Convert the list of source files to a list of object files
 C_OBJS = $(addprefix $(OBJ_PATH)/, $(notdir $(SRCS:.c=.o)))
 ASM_OBJS = $(addprefix $(OBJ_PATH)/, $(notdir $(ASMS:.s=.o)))
 FWS_OBJS = $(addprefix $(OBJ_PATH)/, $(notdir $(FWS:.bin=.o)))
 
+# Add to VPATH the list of directories for source files
 VPATH = $(dir $(SRCS)) \
 		$(dir $(ASMS)) \
 		$(dir $(FWS))
@@ -35,15 +40,25 @@ CFLAGS += -D$(DEVICE_TYPE)
 CFLAGS += -DUSE_HAL_DRIVER
 CFLAGS += $(INCS)
 CFLAGS += -MD -MP -MF .dep/$(@F).d
+CFLAGS += -D$(TUNER_CONFIG)
 # Removed options = -Wall  -mthumb-interwork --specs=nosys.specs 
 
 ###############################################################################
+.PHONY: check_flags
 
-all : $(OUT_PATH)/$(PROJ_NAME).elf
+all : check_flags $(OUT_PATH)/$(PROJ_NAME).elf
 	@echo "Creating HEX and BIN files"
 	@$(OBJCOPY) -O ihex $(OUT_PATH)/$(PROJ_NAME).elf $(OUT_PATH)/$(PROJ_NAME).hex
 	@$(OBJCOPY) -O binary $(OUT_PATH)/$(PROJ_NAME).elf $(OUT_PATH)/$(PROJ_NAME).bin
 #	@$(SIZE) -A -x $(OUT_PATH)/$(PROJ_NAME).elf
+
+check_flags:
+ifneq ($(TUNER_CONFIG),DAB_RADIO)
+ifneq ($(TUNER_CONFIG),FM_RADIO)
+	$(error Specified tuner firmware was $(TUNER_CONFIG), but it can be either FM_RADIO or DAB_RADIO)
+endif
+endif
+	@echo "Tuner version --> $(TUNER_CONFIG)"
 
 $(OUT_PATH)/$(PROJ_NAME).elf : $(C_OBJS) $(ASM_OBJS) $(FWS_OBJS)
 #	@echo $(CFLAGS)
