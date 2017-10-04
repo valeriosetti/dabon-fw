@@ -2,6 +2,8 @@
 #include "stm32f407xx.h"
 #include "core_cm4.h"
 
+#define debug_msg(...)		debug_printf_with_tag("[systick] ", __VA_ARGS__)
+
 uint32_t curr_tick;
 
 /*
@@ -36,4 +38,12 @@ void systick_wait_for_ms(uint32_t delay)
 void SysTick_Handler()
 {
 	curr_tick++;
+}
+
+/*
+ * Shell command for reading the current tick count
+ */
+int systick_gettime(int argc, char *argv[])
+{
+	debug_msg("Current time = %d\n", systick_get_tick_count());
 }

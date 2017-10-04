@@ -2,6 +2,8 @@
 #include "debug_printf.h"
 #include "string.h"
 #include "Si468x.h"
+#include "systick.h"
+#include "utils.h"
 
 #define debug_msg(...)		debug_printf_with_tag("[shell] ", __VA_ARGS__)
 
@@ -20,7 +22,10 @@ typedef struct {
 
 SINGLE_SHELL_CMD shell_cmd_list[] = {
     {"shell_test", shell_test_cmd},
-    {"fm_tune", fm_tune}  // do not remove this!!
+    {"fm_tune", fm_tune},
+    {"systick_gettime", systick_gettime},
+    {"reset", reset},
+	{}// do not remove this empty cell!!
 };
 
 /*

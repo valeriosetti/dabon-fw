@@ -11,11 +11,15 @@
 #define POSITION_VAL(VAL)     (__CLZ(__RBIT(VAL)))
 #define UNUSED(x) ((void)(x))
 
+#ifndef NULL
 #define NULL		((void*)0)
+#endif
 
 #define TRUE		1UL
 #define FALSE		0UL
 
 #define array_size(_x_)		(sizeof(_x_)/sizeof(_x_[0]))
+
+int reset(int argc, char *argv[]);
 
 #endif // _UTILS_H_
