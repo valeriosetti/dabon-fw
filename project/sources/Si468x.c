@@ -175,8 +175,6 @@ uint8_t data_in[IN_OUT_BUFF_SIZE];
 extern uint8_t _binary___external_firmwares_rom00_patch_016_bin_start;
 extern uint8_t _binary___external_firmwares_rom00_patch_016_bin_end;
 
-#define sizeof_binary_image(_img_name_)		(uint32_t)((&_img_name_##_end)-(&_img_name_##_start))
-
 // status register bits
 #define PUP_STATE_mask				0xC0
 #define PUP_STATE_BOOTLOADER		0x80
@@ -653,15 +651,13 @@ static int Si468x_start_dab()
 	// Begin firmware loading phase
 	Si468x_load_init();
 	// Send the bootloader image
-	Si468x_host_load(&_binary___external_firmwares_rom00_patch_016_bin_start,
-			sizeof_binary_image(_binary___external_firmwares_rom00_patch_016_bin));
+	Si468x_host_load(&_binary___external_firmwares_rom00_patch_016_bin_start, sizeof_binary_image(rom00_patch_016_bin));
 	// Wait for 4ms
 	timer_wait_us(4000);
 	// Begin firmware loading phase
 	Si468x_load_init();
 	// Send the application image (DAB)
-	Si468x_host_load(&_binary___external_firmwares_dab_radio_5_0_5_bin_start,
-			sizeof_binary_image(_binary___external_firmwares_dab_radio_5_0_5_bin));
+	Si468x_host_load(&_binary___external_firmwares_dab_radio_5_0_5_bin_start, sizeof_binary_image(dab_radio_5_0_5_bin));
 	// Wait for 4ms
 	timer_wait_us(4000);
 	// Boot the image
@@ -718,15 +714,13 @@ static int Si468x_start_fm()
 	// Begin firmware loading phase
 	Si468x_load_init();
 	// Send the bootloader image
-	Si468x_host_load(&_binary___external_firmwares_rom00_patch_016_bin_start,
-			sizeof_binary_image(_binary___external_firmwares_rom00_patch_016_bin));
+	Si468x_host_load(&_binary___external_firmwares_rom00_patch_016_bin_start, sizeof_binary_image(rom00_patch_016_bin));
 	// Wait for 4ms
 	timer_wait_us(4000);
 	// Begin firmware loading phase
 	Si468x_load_init();
 	// Send the application image (DAB)
-	Si468x_host_load(&_binary___external_firmwares_fmhd_radio_5_0_4_bin_start,
-			sizeof_binary_image(_binary___external_firmwares_fmhd_radio_5_0_4_bin));
+	Si468x_host_load(&_binary___external_firmwares_fmhd_radio_5_0_4_bin_start, sizeof_binary_image(fmhd_radio_5_0_4_bin));
 	// Wait for 4ms
 	timer_wait_us(4000);
 	// Boot the image

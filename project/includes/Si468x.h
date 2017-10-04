@@ -7,6 +7,8 @@
 #define SI468X_SUCCESS		0L
 #define SI468X_ERROR		-1L
 
+#define sizeof_binary_image(_img_name_)		(uint32_t)((&_binary___external_firmwares_##_img_name_##_end)-(&_binary___external_firmwares_##_img_name_##_start))
+
 // Public functions
 void Si468x_init(void);
 
