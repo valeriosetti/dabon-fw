@@ -6,6 +6,7 @@
 #include "utils.h"
 #include "sgtl5000.h"
 #include "buttons.h"
+#include "eeprom.h"
 
 #define debug_msg(...)		debug_printf_with_tag("[shell] ", __VA_ARGS__)
 
@@ -30,6 +31,8 @@ SINGLE_SHELL_CMD shell_cmd_list[] = {
     {"set_hp_out_volume", set_hp_out_volume},
     {"sgtl5000_dump_registers", sgtl5000_dump_registers},
     {"buttons_scan", buttons_scan},
+    {"program_firmware", eeprom_program_firmware},
+    {"show_partition_table", eeprom_show_partition_table},
 	{}// do not remove this empty cell!!
 };
 

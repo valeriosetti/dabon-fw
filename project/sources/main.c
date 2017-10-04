@@ -36,6 +36,8 @@ void HW_init()
 	systick_initialize();
 	buttons_init();
 
+	systick_wait_for_ms(50);
+
 	// Peripherals
 	eeprom_init();
 	Si468x_init();
@@ -67,8 +69,6 @@ void main()
 		mp3_player_play(fno.fname);
 	}*/
 
-	// Timer
-	uint32_t start_tick = systick_get_tick_count();
 	while (1)
 	{
         shell_run();
