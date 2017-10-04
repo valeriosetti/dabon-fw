@@ -736,14 +736,14 @@ static int Si468x_start_fm()
 
 	Si468x_get_part_info(&Si468x_info_part);
 
-	Si468x_dab_set_property(SI468X_PROP_PIN_CONFIG_ENABLE, 0x0002);
+	Si468x_dab_set_property(SI468X_PROP_PIN_CONFIG_ENABLE, 0x0001);	// Analog audio output
 	Si468x_dab_set_property(SI468X_PROP_FM_TUNE_FE_CFG, 0x0000);
 	Si468x_dab_set_property(SI468X_PROP_FM_RDS_CONFIG, 0x0001);
 	Si468x_dab_set_property(SI468X_PROP_FM_AUDIO_DE_EMPHASIS, 0x0001);
 
-	Si468x_fm_tune_freq(10420);
+	Si468x_fm_tune_freq(10280);
 
-	while(1)
+	/*while(1)
 	{
 		// polls the RDS status
 		data_out[0] = 0x34;
@@ -754,7 +754,7 @@ static int Si468x_start_fm()
 
 		data_out[0] = SI468X_CMD_RD_REPLY;
 		Si468x_send_cmd(data_out, 1, data_in, 20);
-	}
+	}*/
 
 	return SI468X_SUCCESS;
 }
@@ -781,3 +781,16 @@ static int Si468x_fm_tune_freq(uint16_t freq)
 	return SI468X_SUCCESS;
 }
 
+/********************************************************************************
+ * SHELL COMMANDS
+ ********************************************************************************/
+/*
+ * Change current tuner's frequency (FM radio)
+ */
+int fm_tune(int argc, char *argv[])
+{
+	if (argc != 1) {
+		debug_msg("wrong number of parameters\n");
+	}
+	Si468x_fm_tune_freq(atoi(argv[0]));
+}

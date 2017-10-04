@@ -15,6 +15,7 @@
 #include "systick.h"
 #include "mp3dec.h"
 #include "sgtl5000.h"
+#include "shell.h"
 
 #define debug_msg(...)		debug_printf_with_tag("[Main] ", __VA_ARGS__)
 
@@ -35,7 +36,7 @@ void HW_init()
 
 	// Peripherals
 	eeprom_init();
-	//Si468x_init();
+	Si468x_init();
 	sgtl5000_init();
 	oled_init();
 	debug_msg("Initialization completed\n");
@@ -70,8 +71,6 @@ void main()
 	uint32_t start_tick = systick_get_tick_count();
 	while (1)
 	{
-		while ((systick_get_tick_count()-start_tick) < 1000UL) {};
-		start_tick = systick_get_tick_count();
-		debug_msg("current time = %d\n", systick_get_tick_count());
+        shell_run();
 	}
 }

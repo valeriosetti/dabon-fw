@@ -2,6 +2,7 @@
 #include "systick.h"
 #include "sd_card.h"
 #include "output_i2s.h"
+#include "uart.h"
 
 // The following symbols are defined in the linker script
 extern uint32_t _sidata;
@@ -98,7 +99,7 @@ void I2C2_ER_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void SPI1_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void SPI2_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void USART1_IRQHandler(void) __attribute((weak, alias("default_handler")));
-void USART2_IRQHandler(void) __attribute((weak, alias("default_handler")));
+//void USART2_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void USART3_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void EXTI15_10_IRQHandler(void) __attribute((weak, alias("default_handler")));
 void RTC_Alarm_IRQHandler(void) __attribute((weak, alias("default_handler")));

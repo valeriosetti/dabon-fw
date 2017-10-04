@@ -10,6 +10,9 @@
 // Public functions
 void Si468x_init(void);
 
+// Shell commands
+int fm_tune(int argc, char *argv[]);
+
 // Typedefs
 typedef struct Si468x_info{
 	uint8_t chiprev;

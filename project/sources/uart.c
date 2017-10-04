@@ -2,6 +2,7 @@
 #include "stm32f407xx.h"
 #include "clock_configuration.h"
 #include "gpio.h"
+#include "shell.h"
 
 // Constants
 #define ESC_ASCII_CODE		0x1B
@@ -41,16 +42,34 @@ int uart_init()
 	USART2->CR1 |= USART_CR1_UE;
 	USART2->BRR = UART_BRR_SAMPLING16(APB1_freq, 115200);
 
-	// Enable transmission
-	USART2->CR1 |= USART_CR1_TE;
+	// Enable TX and RX
+	USART2->CR1 |= USART_CR1_TE | USART_CR1_RE | USART_CR1_RXNEIE;
+	NVIC_EnableIRQ(USART2_IRQn);
 
-	// Clear the terminal on the PC side (for a clearer reading)
+	uart_erase_console();
+
+	return UART_SUCCECSS;
+}
+
+/*
+ * Clear the terminal on the PC side (for a clearer reading)
+ */
+void uart_erase_console()
+{
 	uart_put_char(ESC_ASCII_CODE);
 	uart_put_char('[');
 	uart_put_char('2');
 	uart_put_char('J');
+}
 
-	return UART_SUCCECSS;
+/*
+ * Cancel only the current line from the console
+ */
+void uart_erase_line()
+{
+	uart_put_char(ESC_ASCII_CODE);
+	uart_put_char('[');
+	uart_put_char('K');
 }
 
 /*
@@ -61,6 +80,14 @@ int uart_put_char(uint8_t c)
 	USART2->DR = c;
 	while ((USART2->SR & USART_SR_TXE) == 0);
 	return UART_SUCCECSS;
+}
+
+/*
+ * This is the ISR for the UART
+ */
+void USART2_IRQHandler()
+{
+    shell_add_char(USART2->DR);
 }
 
 
