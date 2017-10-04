@@ -481,7 +481,7 @@ int32_t sgtl5000_power_up()
 									(1<<SGTL5000_LR_SHORT_MOD_SHIFT) | (2<<SGTL5000_CM_SHORT_MOD_SHIFT) );
 	if (ret_val != 0) goto Exit;
 	//----------------Power up Inputs/Outputs/Digital Blocks-------------
-	// Power up LINEOUT, HP, ADC, DAC 
+	// Power up HP, ADC, DAC
 	ret_val = sgtl5000_modify_reg(SGTL5000_CHIP_ANA_POWER,  SGTL5000_ADC_POWERUP | SGTL5000_DAC_POWERUP |
 															SGTL5000_HP_POWERUP | SGTL5000_REFTOP_POWERUP | SGTL5000_ADC_STEREO | SGTL5000_VAG_POWERUP | 
 															SGTL5000_DAC_STEREO,
@@ -699,12 +699,6 @@ int32_t sgtl5000_init()
 {
 	int32_t ret_val = 0;
 	
-	// Power cycle the device
-	ret_val = sgtl5000_power_down();
-	if (ret_val != 0)
-		return ret_val;
-	// wait some time
-	systick_wait_for_ms(10);
 	ret_val = sgtl5000_power_up();
 	if (ret_val != 0)
 		return ret_val;
@@ -730,7 +724,7 @@ int32_t sgtl5000_init()
 	if (ret_val != 0)
 		return ret_val;	
 	// Set the HP_OUT volume to 0dB at boot
-	ret_val = sgtl5000_set_hp_out_volume(0);
+	ret_val = sgtl5000_set_hp_out_volume(-200);
 	if (ret_val != 0)
 		return ret_val;
 		
