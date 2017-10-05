@@ -366,21 +366,7 @@ int eeprom_show_partition_table(int argc, char *argv[])
  *
  */
 int eeprom_program_firmware(int argc, char *argv[])
-{
-    extern uint8_t _binary___external_firmwares_rom00_patch_016_bin_start;
-    extern uint8_t _binary___external_firmwares_rom00_patch_016_bin_end;
-    #if defined(DAB_RADIO)
-        extern uint8_t _binary___external_firmwares_dab_radio_5_0_5_bin_start;
-        extern uint8_t _binary___external_firmwares_dab_radio_5_0_5_bin_end;
-        uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_start;
-        uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_end;
-    #elif defined(FM_RADIO)
-        uint8_t _binary___external_firmwares_dab_radio_5_0_5_bin_start;
-        uint8_t _binary___external_firmwares_dab_radio_5_0_5_bin_end;
-        extern uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_start;
-        extern uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_end;
-    #endif
-    
+{  
     if (argc != 2){
     	debug_msg("Wrong number of parameters\n");
     	return -1;

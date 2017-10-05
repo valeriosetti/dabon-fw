@@ -7,12 +7,32 @@
 #define SI468X_SUCCESS		0L
 #define SI468X_ERROR		-1L
 
+// Tuner's firmware
+extern uint8_t _binary___external_firmwares_rom00_patch_016_bin_start;
+extern uint8_t _binary___external_firmwares_rom00_patch_016_bin_end;
+#if defined(DAB_RADIO)
+    extern uint8_t _binary___external_firmwares_dab_radio_5_0_5_bin_start;
+    extern uint8_t _binary___external_firmwares_dab_radio_5_0_5_bin_end;
+    uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_start;
+    uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_end;
+#elif defined(FM_RADIO)
+    uint8_t _binary___external_firmwares_dab_radio_5_0_5_bin_start;
+    uint8_t _binary___external_firmwares_dab_radio_5_0_5_bin_end;
+    extern uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_start;
+    extern uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_end;
+#else
+	#error Wrong tuner firmware. It should be either DAB_RADIO or FM_RADIO
+#endif
+extern uint8_t _binary___external_firmwares_rom00_patch_016_bin_start;
+extern uint8_t _binary___external_firmwares_rom00_patch_016_bin_end;
+
 #define sizeof_binary_image(_img_name_)		(uint32_t)((&_binary___external_firmwares_##_img_name_##_end)-(&_binary___external_firmwares_##_img_name_##_start))
 
 // Public functions
 void Si468x_init(void);
 
 // Shell commands
+int start_tuner(int argc, char *argv[]);
 int fm_tune(int argc, char *argv[]);
 
 // Typedefs
