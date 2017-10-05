@@ -422,5 +422,6 @@ int eeprom_program_firmware(int argc, char *argv[])
         return -1;
     }
     
+    debug_msg("Image correctly flashed\n");
     return 0;
 }
