@@ -1,11 +1,11 @@
 PROJECT_PATH=project
 
+SRCS += $(PROJECT_PATH)/sources/kernel.c
 SRCS += $(PROJECT_PATH)/sources/clock_configuration.c
 SRCS += $(PROJECT_PATH)/sources/debug_printf.c
 SRCS += $(PROJECT_PATH)/sources/eeprom.c
 SRCS += $(PROJECT_PATH)/sources/fsmc.c
 SRCS += $(PROJECT_PATH)/sources/i2c.c
-SRCS += $(PROJECT_PATH)/sources/main.c
 SRCS += $(PROJECT_PATH)/sources/oled.c
 SRCS += $(PROJECT_PATH)/sources/output_i2s.c
 SRCS += $(PROJECT_PATH)/sources/sd_card.c

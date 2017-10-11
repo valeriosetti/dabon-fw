@@ -7,6 +7,7 @@
 #include "sgtl5000.h"
 #include "buttons.h"
 #include "eeprom.h"
+#include "kernel.h"
 
 #define debug_msg(...)		debug_printf_with_tag("[shell] ", __VA_ARGS__)
 
@@ -14,8 +15,10 @@
 #define MAX_ARGS_NUM        5
 uint8_t command_buffer[COMMAND_LINE_MAX_LENGTH];
 uint16_t cmd_buff_pos = 0;
-uint8_t cmd_complete_flag = 0;
 
+
+ALLOCATE_TASK(shell, 200);
+#define SHELL_TASK_INTERVAL     100
 static int shell_list_commands(int argc, char *argv[]);
 
 typedef struct {
@@ -35,6 +38,15 @@ SINGLE_SHELL_CMD shell_cmd_list[] = {
     {"show_partition_table", eeprom_show_partition_table},
 	{}// do not remove this empty cell!!
 };
+
+/*
+ *
+ */
+void shell_init()
+{
+	kernel_init_task(&shell_task);
+
+}
 
 /*
  * Process the command line
@@ -90,9 +102,9 @@ void shell_add_char(uint8_t input_char)
 {
     if ((input_char == '\n') || (input_char == '\r')) {
     	// Process the command
-		cmd_complete_flag = 1;
 		uart_put_char('\n');
 		uart_put_char('\r');
+		kernel_activate_task_immediately(&shell_task);
     } else if (input_char == '\b') {
     	// Clear a char from the command line
     	if (cmd_buff_pos > 0) {
@@ -116,18 +128,6 @@ void shell_add_char(uint8_t input_char)
 }
 
 /*
- * This is called by the main loop. Its main purpose is to process the
- * command line once the new_line char is received
- */
-void shell_run()
-{
-    if (cmd_complete_flag) {
-        shell_process_cmd_line();
-        cmd_complete_flag = 0;
-    }
-}
-
-/*
  * Simple test function for testing shell commands
  */ 
 static int shell_list_commands(int argc, char *argv[])
@@ -137,4 +137,15 @@ static int shell_list_commands(int argc, char *argv[])
 		debug_printf("%s\n", curr_cmd->cmd_name);
 		curr_cmd++; // move to the next command
 	}
+}
+
+/*
+ * This is called by the main loop. Its main purpose is to process the
+ * command line once the new_line char is received
+ */
+int32_t shell_task_func(void* arg)
+{
+    shell_process_cmd_line();
+
+    return WAIT_FOR_RESUME;
 }

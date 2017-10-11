@@ -3,6 +3,7 @@
 
 #include "stdint.h"
 
+void shell_init();
 void shell_add_char(uint8_t input_char);
 void shell_run();
 
