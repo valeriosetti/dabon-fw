@@ -4,6 +4,7 @@
 #include "output_i2s.h"
 #include "uart.h"
 #include "buttons.h"
+#include "kernel.h"
 
 // The following symbols are defined in the linker script
 extern uint32_t _sidata;
@@ -49,7 +50,7 @@ __attribute__((naked)) void Reset_Handler(void)
 	uint32_t *bss_end = &_ebss;
 	while (bss_begin < bss_end) *bss_begin++ = 0;
 
-	main();
+	kernel_main();
 }
 
 void NMI_Handler(void) __attribute((weak, alias("default_handler")));

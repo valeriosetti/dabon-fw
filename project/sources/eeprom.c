@@ -21,21 +21,16 @@
 #define eeprom_set_hold_pin()			SET_BIT(GPIOE->BSRR, GPIO_BSRR_BR15)
 #define eeprom_release_hold_pin()		SET_BIT(GPIOE->BSRR, GPIO_BSRR_BS15)
 
+// Private functions
+int32_t eeprom_page_program(uint32_t start_address, uint8_t* data);
+int32_t eeprom_page_erase(uint32_t start_address);
+
 /*
  * The EEPROM will be divided into different sections in order to save all the
  * firmwares. The first page (256 bytes) will store informations about the other
  * partitions using the following structures.
  */
-#define MAX_PARTITION_NAME_LENGTH		16
 #pragma pack(1)
-typedef struct {
-	char name[MAX_PARTITION_NAME_LENGTH];
-	uint32_t start_page;
-    uint32_t final_page;
-    uint32_t data_size;
-	uint32_t checksum;
-} PARTITION_INFO;
-
 struct {
     PARTITION_INFO bootloader;
     PARTITION_INFO fm_radio;
@@ -61,13 +56,12 @@ struct {
 #define STATUS_REG_BUSY			0x01
 #define STATUS_REG_WEL			0x02
 
-// Global variables
-#define PAGE_SIZE_IN_BYTES      256
-#define IN_OUT_BUFF_SIZE		256
-
 // Temporary buffer used to store a page
-uint8_t tmp_page[PAGE_SIZE_IN_BYTES];
+uint8_t tmp_page[EEPROM_PAGE_SIZE_IN_BYTES];
 
+/***************************************************************/
+/*	BASIC FUNCTIONS
+/***************************************************************/
 /*
  * Basic function for sending/receiving data
  */
@@ -191,6 +185,9 @@ int32_t eeprom_read_jedec_id()
     } 
 }
 
+/***************************************************************/
+/*	PAGE READ/WRITE/ERASE
+/***************************************************************/
 /*
  *
  */
@@ -203,7 +200,7 @@ int32_t eeprom_page_read(uint32_t start_address, uint8_t* data)
         ((start_address & 0x000000FF) >> 0) 
     };
 
-	if (eeprom_send_cmd(cmd_data, sizeof(cmd_data), data, PAGE_SIZE_IN_BYTES) >= 0) {
+	if (eeprom_send_cmd(cmd_data, sizeof(cmd_data), data, EEPROM_PAGE_SIZE_IN_BYTES) >= 0) {
         return 0;
     } 
     
@@ -224,7 +221,7 @@ int32_t eeprom_page_program(uint32_t start_address, uint8_t* data)
     };
 
 	if (eeprom_send_cmd_hold_CS(cmd_data, sizeof(cmd_data), NULL, 0) == 0) {
-        if (eeprom_send_cmd(data, PAGE_SIZE_IN_BYTES, NULL, 0) == 0) {
+        if (eeprom_send_cmd(data, EEPROM_PAGE_SIZE_IN_BYTES, NULL, 0) == 0) {
             eeprom_wait_until_busy();
             return 0;
         }
@@ -255,6 +252,9 @@ int32_t eeprom_page_erase(uint32_t start_address)
     }
 }
 
+/***************************************************************/
+/*	PARTITION TABLE MANAGING
+/***************************************************************/
 /*
  * Create a local copy of the eeprom's partition table
  */
@@ -292,6 +292,26 @@ int32_t eeprom_update_partition_table()
 }
 
 /*
+ *
+ */
+int eeprom_show_partition_table(int argc, char *argv[])
+{
+	PARTITION_INFO* tmp_partition = (PARTITION_INFO*)&eeprom_partitions_table;
+
+	while (tmp_partition->name[0] != 0xFF) {
+		debug_msg("partition_name = %s\n", tmp_partition->name);
+		debug_msg("start page = %d\n", tmp_partition->start_page);
+		debug_msg("end page = %d\n",tmp_partition->final_page);
+		debug_msg("data size = %d\n", tmp_partition->data_size);
+		debug_msg("checksum = 0x%x\n", tmp_partition->checksum);
+		tmp_partition++;
+	}
+}
+
+/***************************************************************/
+/*	GENERIC MODULE'S FUNCTIONS
+/***************************************************************/
+/*
  * Initialize the eeprom
  */
 void eeprom_init()
@@ -309,6 +329,21 @@ void eeprom_init()
     eeprom_get_partition_table();
 }
 
+PARTITION_INFO* eeprom_get_partition_infos(char* partition_name)
+{
+	PARTITION_INFO* tmp_partition = (PARTITION_INFO*)&eeprom_partitions_table;
+
+	while (tmp_partition->name[0] != 0xFF) {
+		if (strcmp(tmp_partition->name, partition_name) == 0) {
+			return tmp_partition;
+		}
+	}
+	return NULL;
+}
+
+/***************************************************************/
+/*	EEPROM PROGRAMMING
+/***************************************************************/
 /*
  * Copy a firmware image from the STM32's memory to the EEPROM
  */
@@ -322,7 +357,7 @@ int32_t eeprom_copy_firmware(uint8_t* fw_image, uint32_t img_size, uint32_t star
 	while (img_size > 0) {
 		// Copy to the local buffer the data that must be written on the physical page
 		memset(tmp_page, 0, sizeof(tmp_page));
-		page_len = (img_size > PAGE_SIZE_IN_BYTES) ? PAGE_SIZE_IN_BYTES : img_size;
+		page_len = (img_size > EEPROM_PAGE_SIZE_IN_BYTES) ? EEPROM_PAGE_SIZE_IN_BYTES : img_size;
 		memcpy(tmp_page, fw_image, page_len);
 		fw_image += page_len;
 		img_size -= page_len;
@@ -346,41 +381,10 @@ int32_t eeprom_copy_firmware(uint8_t* fw_image, uint32_t img_size, uint32_t star
 }
 
 /*
- * 
- */
-int eeprom_show_partition_table(int argc, char *argv[])
-{
-	PARTITION_INFO* tmp_partition = (PARTITION_INFO*)&eeprom_partitions_table;
-
-	while (tmp_partition->name[0] != 0xFF) {
-		debug_msg("partition_name = %s\n", tmp_partition->name);
-		debug_msg("start page = %d\n", tmp_partition->start_page);
-		debug_msg("end page = %d\n",tmp_partition->final_page);
-		debug_msg("data size = %d\n", tmp_partition->data_size);
-		debug_msg("checksum = 0x%x\n", tmp_partition->checksum);
-		tmp_partition++;
-	}
-}
-
-/*
  *
  */
 int eeprom_program_firmware(int argc, char *argv[])
 {
-    extern uint8_t _binary___external_firmwares_rom00_patch_016_bin_start;
-    extern uint8_t _binary___external_firmwares_rom00_patch_016_bin_end;
-    #if defined(DAB_RADIO)
-        extern uint8_t _binary___external_firmwares_dab_radio_5_0_5_bin_start;
-        extern uint8_t _binary___external_firmwares_dab_radio_5_0_5_bin_end;
-        uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_start;
-        uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_end;
-    #elif defined(FM_RADIO)
-        uint8_t _binary___external_firmwares_dab_radio_5_0_5_bin_start;
-        uint8_t _binary___external_firmwares_dab_radio_5_0_5_bin_end;
-        extern uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_start;
-        extern uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_end;
-    #endif
-    
     if (argc != 2){
     	debug_msg("Wrong number of parameters\n");
     	return -1;
@@ -413,7 +417,7 @@ int eeprom_program_firmware(int argc, char *argv[])
             return -1;
         }
         final_page = eeprom_copy_firmware(&_binary___external_firmwares_dab_radio_5_0_5_bin_start, sizeof_binary_image(dab_radio_5_0_5_bin), start_page);
-		strcpy(eeprom_partitions_table.dab_radio.name, "fm_radio");
+		strcpy(eeprom_partitions_table.dab_radio.name, "dab_radio");
 		eeprom_partitions_table.dab_radio.start_page = start_page;
 		eeprom_partitions_table.dab_radio.data_size = sizeof_binary_image(dab_radio_5_0_5_bin);
 		eeprom_partitions_table.dab_radio.final_page = final_page;

@@ -7,6 +7,7 @@
 #include "clock_configuration.h"
 #include "spi.h"
 #include "string.h"
+#include "eeprom.h"
 
 #define debug_msg(...)		debug_printf_with_tag("[Si468x] ", __VA_ARGS__)
 
@@ -32,7 +33,11 @@ static int Si468x_send_cmd(uint8_t* data_out, uint32_t data_out_size, uint8_t* d
 static int Si468x_rd_reply(uint32_t extra_data_len);
 static int Si468x_powerup(void);
 static int Si468x_load_init(void);
-static int Si468x_host_load(uint8_t* img_data, uint32_t len);
+static int Si468x_host_load_from_flash(uint8_t* img_data, uint32_t len);
+static int Si468x_host_load_from_eeprom(uint8_t img_identifier);
+	#define LOAD_BOOTLOADER_IMAGE		0x00
+	#define LOAD_FM_IMAGE				0x01
+	#define LOAD_DAB_IMAGE				0x02
 static int Si468x_boot(void);
 static int Si468x_get_sys_state(void);
 // Private functions for advanced management
@@ -45,16 +50,13 @@ static int Si468x_get_digital_service_list(void);
 static int Si468x_dab_get_freq_list(Si468x_DAB_freq_list *list);
 void Si468x_get_part_info(Si468x_info *info);
 static int Si468x_dab_tune_freq(uint8_t freq, injection_type injection, uint16_t antcap);
-static int Si468x_dab_digrad_status(uint8_t digrad_ack, uint8_t attune,
-									uint8_t stc_ack, Si468x_DAB_digrad_status *status);
+static int Si468x_dab_digrad_status(uint8_t digrad_ack, uint8_t attune, uint8_t stc_ack, Si468x_DAB_digrad_status *status);
 static int Si468x_dab_set_freq_list(void);
 static int Si468x_dab_set_property(uint16_t property, uint16_t value);
 
 // FM
-#if defined(FM_RADIO)
 static int Si468x_start_fm(void);
 static int Si468x_fm_tune_freq(uint16_t freq);
-#endif
 
 // List of commands for DAB mode
 #define SI468X_CMD_RD_REPLY								0x00
@@ -204,14 +206,12 @@ void Si468x_init()
 	MODIFY_REG(GPIOD->OSPEEDR, GPIO_MODER_MODE8_Msk, OSPEEDR_50MHZ << GPIO_MODER_MODE8_Pos);
 	MODIFY_REG(GPIOD->MODER, GPIO_MODER_MODE6_Msk, MODER_INPUT << GPIO_MODER_MODE6_Pos);
 	MODIFY_REG(GPIOD->PUPDR, GPIO_PUPDR_PUPD6_Msk, PUPDR_PULL_UP << GPIO_PUPDR_PUPD6_Pos);
-
-	#if defined(DAB_RADIO)
-		Si468x_start_dab();
-	#elif defined(FM_RADIO)
-		Si468x_start_fm();
-	#endif
 }
 
+/********************************************************************************
+ * COMMANDS FUNCTIONS
+ * The following commands are explained in Silicon Labs AN 649, rev. 1.9
+ ********************************************************************************/
 /*
  *
  */
@@ -235,10 +235,6 @@ static int Si468x_send_cmd(uint8_t* data_out, uint32_t data_out_size, uint8_t* d
 //	}
 }
 
-/********************************************************************************
- * COMMANDS FUNCTIONS
- * The following commands are explained in Silicon Labs AN 649, rev. 1.9
- ********************************************************************************/
 /*
  *
  */
@@ -292,9 +288,9 @@ static int Si468x_load_init()
 }
 
 /*
- *
+ * Loads the binary image which is included into the SMT32's fimrware
  */
-static int Si468x_host_load(uint8_t* img_data, uint32_t len)
+static int Si468x_host_load_from_flash(uint8_t* img_data, uint32_t len)
 {
 	uint32_t curr_len;
 
@@ -319,6 +315,57 @@ static int Si468x_host_load(uint8_t* img_data, uint32_t len)
 
 		len -= curr_len;
 		img_data += curr_len;
+	} while(len > 0);
+}
+
+/*
+ * Load the binary taking it from the eeprom
+ */
+static int Si468x_host_load_from_eeprom(uint8_t img_identifier)
+{
+	PARTITION_INFO* eeprom_part_info;
+	uint8_t img_buff[EEPROM_PAGE_SIZE_IN_BYTES];
+
+	switch(img_identifier) {
+	case LOAD_BOOTLOADER_IMAGE:
+		eeprom_part_info = eeprom_get_partition_infos("bootloader");
+		break;
+	case LOAD_FM_IMAGE:
+		eeprom_part_info = eeprom_get_partition_infos("fm_radio");
+		break;
+	case LOAD_DAB_IMAGE:
+		eeprom_part_info = eeprom_get_partition_infos("fm_radio");
+		break;
+	default:
+		debug_msg("error: image not found on the eeprom");
+		return -1;
+	}
+
+	uint32_t len = eeprom_part_info->data_size;
+	uint32_t curr_page = eeprom_part_info->start_page;
+	uint32_t curr_len;
+
+	// Read the eeprom page-by-page and send it to the tuner
+	do {
+		eeprom_page_read(curr_page, img_buff);
+		data_out[0] = SI468X_CMD_HOST_LOAD;
+		data_out[1] = 0x00;
+		data_out[2] = 0x00;
+		data_out[3] = 0x00;
+
+		curr_len = (len > sizeof(img_buff)) ? sizeof(img_buff) : len;
+
+		spi_set_Si468x_CS();
+		timer_wait_us(1);
+		spi_write(data_out, 4);
+		spi_write(img_buff, curr_len);
+		timer_wait_us(1);
+		spi_release_Si468x_CS();
+
+		Si468x_wait_for_cts(POLLING);
+
+		curr_page++;
+		len -= curr_len;
 	} while(len > 0);
 }
 
@@ -634,7 +681,6 @@ void Si468x_wait_for_stcint(Si468x_wait_type type)
 	}
 }
 
-#ifdef DAB_RADIO
 /*
  *
  */
@@ -651,13 +697,21 @@ static int Si468x_start_dab()
 	// Begin firmware loading phase
 	Si468x_load_init();
 	// Send the bootloader image
-	Si468x_host_load(&_binary___external_firmwares_rom00_patch_016_bin_start, sizeof_binary_image(rom00_patch_016_bin));
+	if (sizeof_binary_image(rom00_patch_016_bin) < 2*sizeof(uint8_t)) {
+		Si468x_host_load_from_eeprom(LOAD_BOOTLOADER_IMAGE);
+	} else {
+		Si468x_host_load_from_flash(&_binary___external_firmwares_rom00_patch_016_bin_start, sizeof_binary_image(rom00_patch_016_bin));
+	}
 	// Wait for 4ms
 	timer_wait_us(4000);
 	// Begin firmware loading phase
 	Si468x_load_init();
 	// Send the application image (DAB)
-	Si468x_host_load(&_binary___external_firmwares_dab_radio_5_0_5_bin_start, sizeof_binary_image(dab_radio_5_0_5_bin));
+	if (sizeof_binary_image(dab_radio_5_0_5_bin) < 2*sizeof(uint8_t)) {
+		Si468x_host_load_from_eeprom(LOAD_DAB_IMAGE);
+	} else {
+		Si468x_host_load_from_flash(&_binary___external_firmwares_dab_radio_5_0_5_bin_start, sizeof_binary_image(dab_radio_5_0_5_bin));
+	}
 	// Wait for 4ms
 	timer_wait_us(4000);
 	// Boot the image
@@ -697,7 +751,7 @@ static int Si468x_start_dab()
 
 	return SI468X_SUCCESS;
 }
-#else 
+
 /*
  *
  */
@@ -714,13 +768,21 @@ static int Si468x_start_fm()
 	// Begin firmware loading phase
 	Si468x_load_init();
 	// Send the bootloader image
-	Si468x_host_load(&_binary___external_firmwares_rom00_patch_016_bin_start, sizeof_binary_image(rom00_patch_016_bin));
+	if (sizeof_binary_image(rom00_patch_016_bin) < 2*sizeof(uint8_t)) {
+		Si468x_host_load_from_eeprom(LOAD_BOOTLOADER_IMAGE);
+	} else {
+		Si468x_host_load_from_flash(&_binary___external_firmwares_rom00_patch_016_bin_start, sizeof_binary_image(rom00_patch_016_bin));
+	}
 	// Wait for 4ms
 	timer_wait_us(4000);
 	// Begin firmware loading phase
 	Si468x_load_init();
 	// Send the application image (DAB)
-	Si468x_host_load(&_binary___external_firmwares_fmhd_radio_5_0_4_bin_start, sizeof_binary_image(fmhd_radio_5_0_4_bin));
+	if (sizeof_binary_image(fmhd_radio_5_0_4_bin) < 2*sizeof(uint8_t)) {
+		Si468x_host_load_from_eeprom(LOAD_FM_IMAGE);
+	} else {
+		Si468x_host_load_from_flash(&_binary___external_firmwares_fmhd_radio_5_0_4_bin_start, sizeof_binary_image(fmhd_radio_5_0_4_bin));
+	}
 	// Wait for 4ms
 	timer_wait_us(4000);
 	// Boot the image
@@ -752,7 +814,6 @@ static int Si468x_start_fm()
 
 	return SI468X_SUCCESS;
 }
-#endif
 
 /*
  *

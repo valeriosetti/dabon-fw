@@ -12,11 +12,11 @@
 #define UNUSED(x) ((void)(x))
 
 #ifndef NULL
-#define NULL		((void*)0)
+#define NULL	(void*)0
 #endif
 
-#define TRUE		1UL
-#define FALSE		0UL
+#define FALSE	(0UL)
+#define TRUE 	(!FALSE)
 
 #define array_size(_x_)		(sizeof(_x_)/sizeof(_x_[0]))
 
