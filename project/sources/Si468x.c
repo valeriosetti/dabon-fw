@@ -164,19 +164,6 @@ static int Si468x_fm_tune_freq(uint16_t freq);
 uint8_t data_out[IN_OUT_BUFF_SIZE];
 uint8_t data_in[IN_OUT_BUFF_SIZE];
 
-// Tuner's firmware
-#if defined(DAB_RADIO)
-	extern uint8_t _binary___external_firmwares_dab_radio_5_0_5_bin_start;
-	extern uint8_t _binary___external_firmwares_dab_radio_5_0_5_bin_end;
-#elif defined(FM_RADIO)
-	extern uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_start;
-	extern uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_end;
-#else
-	#error Wrong tuner firmware. It should be either DAB_RADIO or FM_RADIO
-#endif
-extern uint8_t _binary___external_firmwares_rom00_patch_016_bin_start;
-extern uint8_t _binary___external_firmwares_rom00_patch_016_bin_end;
-
 // status register bits
 #define PUP_STATE_mask				0xC0
 #define PUP_STATE_BOOTLOADER		0x80
@@ -757,8 +744,6 @@ static int Si468x_start_dab()
  */
 static int Si468x_start_fm()
 {
-	uint8_t actual_freq;
-
 	// Take the tuner out of reset and wait for 3ms
 	Si468x_deassert_reset();
 	timer_wait_us(3000);
@@ -799,19 +784,6 @@ static int Si468x_start_fm()
 
 	Si468x_fm_tune_freq(10280);
 
-	/*while(1)
-	{
-		// polls the RDS status
-		data_out[0] = 0x34;
-		data_out[1] = 0x00;
-		Si468x_send_cmd(data_out, 2, NULL, 0);
-
-		Si468x_wait_for_cts(POLLING);
-
-		data_out[0] = SI468X_CMD_RD_REPLY;
-		Si468x_send_cmd(data_out, 1, data_in, 20);
-	}*/
-
 	return SI468X_SUCCESS;
 }
 
@@ -846,6 +818,34 @@ int fm_tune(int argc, char *argv[])
 {
 	if (argc != 1) {
 		debug_msg("wrong number of parameters\n");
+        return -1;
 	}
 	Si468x_fm_tune_freq(atoi(argv[0]));
+}
+
+/*
+ * Start the tuner either in FM or DAB mode
+ */
+int start_tuner(int argc, char *argv[])
+{
+    if (argc != 1) {
+		debug_msg("wrong number of parameters\n");
+        return -1;
+	}   
+    
+    // Reset the tuner and wait for 50ms before reloading the new image
+    Si468x_assert_reset();
+    systick_wait_for_ms(50);
+    
+    if (strcmp(argv[0], "fm") == 0) {
+        Si468x_start_fm();
+        debug_msg("FM firmware loaded\n");
+    } else if (strcmp(argv[0], "dab") == 0) {
+        Si468x_start_dab();
+        debug_msg("DAB firmware loaded\n");
+    } else {
+        debug_msg("wrong firmware image selected\n");
+        return -1;
+    }
+    return 0;
 }

@@ -13,6 +13,7 @@
 void Si468x_init(void);
 
 // Shell commands
+int start_tuner(int argc, char *argv[]);
 int fm_tune(int argc, char *argv[]);
 
 // Typedefs
