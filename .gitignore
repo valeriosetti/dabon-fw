@@ -4,3 +4,4 @@
 .settings/
 /build/
 external_firmwares/*
+/btstack/
