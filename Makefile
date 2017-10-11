@@ -1,6 +1,6 @@
 # The following option selects which firmware will be loaded into the
-# tuner. Allowed options are "FM_RADIO" and "DAB_RADIO"  
-TUNER_CONFIG=FM_RADIO
+# tuner. Allowed options are "FM_RADIO", "DAB_RADIO" and "NO_EXT_FIRMWARES"
+TUNER_CONFIG=NO_EXT_FIRMWARES
 
 # Include project's sources and includes
 include ./add_project.mk
@@ -55,7 +55,9 @@ all : check_flags $(OUT_PATH)/$(PROJ_NAME).elf
 check_flags:
 ifneq ($(TUNER_CONFIG),DAB_RADIO)
 ifneq ($(TUNER_CONFIG),FM_RADIO)
+ifneq ($(TUNER_CONFIG),NO_EXT_FIRMWARES)
 	$(error Specified tuner firmware was $(TUNER_CONFIG), but it can be either FM_RADIO or DAB_RADIO)
+endif
 endif
 endif
 	@echo "Tuner version --> $(TUNER_CONFIG)"
