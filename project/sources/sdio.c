@@ -7,7 +7,7 @@
 #include "core_cm4.h"
 #include "systick.h"
 
-#define debug_msg(...)		debug_printf_with_tag("[SDIO] ", __VA_ARGS__)
+#define debug_msg(format, ...)		debug_printf("[sdio] " format, ##__VA_ARGS__)
 
 static uint32_t SDMMC_GetCmdError(SDIO_TypeDef *SDIOx);
 static uint32_t SDMMC_GetCmdResp1(SDIO_TypeDef *SDIOx, uint8_t SD_CMD, uint32_t Timeout);

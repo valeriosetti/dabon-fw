@@ -4,7 +4,7 @@
 #include "debug_printf.h"
 #include "string.h"
 
-#define debug_msg(...)		debug_printf_with_tag("[mp3_player] ", __VA_ARGS__)
+#define debug_msg(format, ...)		debug_printf("[mp3_player] " format, ##__VA_ARGS__)
 
 HMP3Decoder hMP3Decoder = NULL;
 uint32_t internal_status = MP3_PLAYER_IDLE;

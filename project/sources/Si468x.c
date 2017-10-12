@@ -9,7 +9,7 @@
 #include "string.h"
 #include "eeprom.h"
 
-#define debug_msg(...)		debug_printf_with_tag("[Si468x] ", __VA_ARGS__)
+#define debug_msg(format, ...)		debug_printf("[si4684] " format, ##__VA_ARGS__)
 
 // Macros
 #define Si468x_assert_reset()		SET_BIT(GPIOD->BSRR, GPIO_BSRR_BR8)

@@ -2,7 +2,7 @@
 #include "stm32f407xx.h"
 #include "core_cm4.h"
 
-#define debug_msg(...)		debug_printf_with_tag("[systick] ", __VA_ARGS__)
+#define debug_msg(format, ...)		debug_printf("[systick] " format, ##__VA_ARGS__)
 
 uint32_t curr_tick;
 

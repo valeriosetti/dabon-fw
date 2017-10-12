@@ -5,7 +5,7 @@
 #include "clock_configuration.h"
 #include "debug_printf.h"
 
-#define debug_msg(...)		debug_printf_with_tag("[buttons] ", __VA_ARGS__)
+#define debug_msg(format, ...)		debug_printf("[buttons] " format, ##__VA_ARGS__)
 
 // Macros for buttons' polling
 #define is_VOL_UP_pressed()    (READ_BIT(GPIOC->IDR, GPIO_IDR_IDR_0) == 0)

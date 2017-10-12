@@ -7,7 +7,7 @@
 #include "fsmc.h"
 #include "dabon_logo.h"
 
-#define debug_msg(...)		debug_printf_with_tag("[Oled] ", __VA_ARGS__)
+#define debug_msg(format, ...)		debug_printf("[oled] " format, ##__VA_ARGS__)
 
 // Macros
 #define oled_assert_reset()			SET_BIT(GPIOD->BSRR, GPIO_BSRR_BR9)
@@ -71,16 +71,6 @@ void oled_init()
 			fsmc_write(FSMC_DATA_ADDRESS, dabon_logo[dabon_logo_byte++]);
 		}
 	}
-//	for(i=0;i<0x08;i++)
-//	{
-//		oled_set_page_start_address(i);
-//		oled_set_column_start_address(0x00);
-//		for(j=0;j<0x80;j++)
-//		{
-//			debug_msg("0x%x ", fsmc_read(FSMC_DATA_ADDRESS));
-//		}
-//		debug_msg("\n");
-//	}
 }
 
 /*

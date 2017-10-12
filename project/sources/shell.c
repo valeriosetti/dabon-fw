@@ -9,7 +9,7 @@
 #include "eeprom.h"
 #include "kernel.h"
 
-#define debug_msg(...)		debug_printf_with_tag("[shell] ", __VA_ARGS__)
+#define debug_msg(format, ...)		debug_printf("[shell] " format, ##__VA_ARGS__)
 
 #define COMMAND_LINE_MAX_LENGTH     128
 #define MAX_ARGS_NUM        5

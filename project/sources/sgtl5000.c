@@ -4,7 +4,7 @@
 #include "output_i2s.h"
 #include "utils.h"
 
-#define debug_msg(...)		debug_printf_with_tag("[sgtl5000] ", __VA_ARGS__)
+#define debug_msg(format, ...)		debug_printf("[sgtl5000] " format, ##__VA_ARGS__)
 
 #define SGTL5000_I2C_ADDRESS		0x0A
 

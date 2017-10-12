@@ -4,7 +4,7 @@
 #include "utils.h"
 #include "debug_printf.h"
 
-#define debug_msg(...)		debug_printf_with_tag("[SD] ", __VA_ARGS__)
+#define debug_msg(format, ...)		debug_printf("[sd] " format, ##__VA_ARGS__)
 
 /* Private functions ---------------------------------------------------------*/
 static uint32_t SD_PowerON(void);                      

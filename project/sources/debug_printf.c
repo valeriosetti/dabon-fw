@@ -174,13 +174,6 @@ int debug_printf(const char *format, ...)
     return print( 0, format, args );
 }
 
-int debug_printf_with_tag(const char *tag, const char *format, ...)
-{
-    va_list args;
-    va_start( args, format );
-    return print( 0, tag, args ) + print( 0, format, args );
-}
-
 /*int debug_sprintf(char *out, const char *format, ...)
 {
         va_list args;

@@ -6,7 +6,7 @@
 #include "debug_printf.h"
 #include "systick.h"
 
-#define debug_msg(...)		debug_printf_with_tag("[output_i2s] ", __VA_ARGS__)
+#define debug_msg(format, ...)		debug_printf("[output_i2s] " format, ##__VA_ARGS__)
 
 // Typedefs and enums
 typedef struct {

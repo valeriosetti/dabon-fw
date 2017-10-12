@@ -5,7 +5,7 @@
 #include "systick.h"
 #include "debug_printf.h"
 
-#define debug_msg(...)		debug_printf_with_tag("[i2c] ", __VA_ARGS__)
+#define debug_msg(format, ...)		debug_printf("[i2c] " format, ##__VA_ARGS__)
 
 // Interface properties
 #define I2C_CLOCK_FREQ				100000		// in Hz

@@ -16,7 +16,7 @@
 #include "Si468x.h"
 
 // Macros
-#define debug_msg(...)		debug_printf_with_tag("[Eeprom] ", __VA_ARGS__)
+#define debug_msg(format, ...)		debug_printf("[eeprom] " format, ##__VA_ARGS__)
 
 #define eeprom_set_hold_pin()			SET_BIT(GPIOE->BSRR, GPIO_BSRR_BR15)
 #define eeprom_release_hold_pin()		SET_BIT(GPIOE->BSRR, GPIO_BSRR_BS15)
