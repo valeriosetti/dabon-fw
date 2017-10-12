@@ -17,6 +17,11 @@
 #define is_LEFT_pressed()    (READ_BIT(GPIOE->IDR, GPIO_IDR_IDR_13) == 0)
 #define is_DOWN_pressed()    (READ_BIT(GPIOE->IDR, GPIO_IDR_IDR_14) == 0)
 
+void (*keypress_callback_func)(uint8_t, uint8_t);
+
+/*******************************************************************************/
+/*	PUBLIC FUNCTIONS
+/*******************************************************************************/
 /*
  * Initialize the GPIOs
  */
@@ -87,43 +92,65 @@ void buttons_init()
 	// NOTE: the CANCEL button cannot be tied to any interrupt line in the current HW design
 }
 
+int32_t buttons_register_key_event_callback(void (*func)(uint8_t, uint8_t))
+{
+	keypress_callback_func = func;
+	return 0;
+}
+
+int32_t buttons_remove_key_event_callback(void)
+{
+	keypress_callback_func = NULL;
+	return 0;
+}
+
+/*******************************************************************************/
+/*	INTERRUPTS
+/*******************************************************************************/
 void EXTI0_IRQHandler()
 {
-	if (is_VOL_UP_pressed())
-		debug_msg("VOL_UP press\n");
-	else
-		debug_msg("VOL_UP released\n");
+	if (keypress_callback_func != NULL) {
+		if (is_VOL_UP_pressed())
+			(*keypress_callback_func)(KEY_VOL_UP, KEY_PRESSED);
+		else
+			(*keypress_callback_func)(KEY_VOL_UP, KEY_RELEASED);
+	}
 
 	SET_BIT(EXTI->PR, EXTI_PR_PR0);
 }
 
 void EXTI1_IRQHandler()
 {
-	if (is_VOL_DOWN_pressed())
-		debug_msg("VOL_DOWN press\n");
-	else
-		debug_msg("VOL_DOWN released\n");
+	if (keypress_callback_func != NULL) {
+		if (is_VOL_DOWN_pressed())
+			(*keypress_callback_func)(KEY_VOL_DOWN, KEY_PRESSED);
+		else
+			(*keypress_callback_func)(KEY_VOL_DOWN, KEY_RELEASED);
+	}
 
 	SET_BIT(EXTI->PR, EXTI_PR_PR1);
 }
 
 void EXTI4_IRQHandler()
 {
-	if (is_OK_pressed())
-		debug_msg("OK press\n");
-	else
-		debug_msg("OK released\n");
-
+	if (keypress_callback_func != NULL) {
+		if (is_OK_pressed())
+			(*keypress_callback_func)(KEY_OK, KEY_PRESSED);
+		else
+			(*keypress_callback_func)(KEY_OK, KEY_RELEASED);
+	}
 	SET_BIT(EXTI->PR, EXTI_PR_PR4);
 }
 
 void EXTI9_5_IRQHandler()
 {
 	if (EXTI->PR & EXTI_PR_PR5) {	// RIGHT button
-		if (is_RIGHT_pressed())
-			debug_msg("RIGHT press\n");
-		else
-			debug_msg("RIGHT released\n");
+		if (keypress_callback_func != NULL) {
+			if (is_RIGHT_pressed())
+				(*keypress_callback_func)(KEY_RIGHT, KEY_PRESSED);
+			else
+				(*keypress_callback_func)(KEY_RIGHT, KEY_RELEASED);
+		}
 		SET_BIT(EXTI->PR, EXTI_PR_PR5);
 	} else {
 		debug_msg("Unknown interrupt source for EXTI9_5_IRQ. EXTI->PR=0x%x\n", EXTI->PR);
@@ -134,24 +161,30 @@ void EXTI9_5_IRQHandler()
 void EXTI15_10_IRQHandler()
 {
 	if (EXTI->PR & EXTI_PR_PR12) {	// UP button
-		if (is_UP_pressed())
-			debug_msg("UP press\n");
-		else
-			debug_msg("UP released\n");
+		if (keypress_callback_func != NULL) {
+			if (is_UP_pressed())
+				(*keypress_callback_func)(KEY_UP, KEY_PRESSED);
+			else
+				(*keypress_callback_func)(KEY_UP, KEY_RELEASED);
+		}
 		SET_BIT(EXTI->PR, EXTI_PR_PR12);
 	} else
 	if (EXTI->PR & EXTI_PR_PR13) { // LEFT button
-		if (is_LEFT_pressed())
-			debug_msg("LEFT press\n");
-		else
-			debug_msg("LEFT released\n");
+		if (keypress_callback_func != NULL) {
+			if (is_LEFT_pressed())
+				(*keypress_callback_func)(KEY_LEFT, KEY_PRESSED);
+			else
+				(*keypress_callback_func)(KEY_LEFT, KEY_RELEASED);
+		}
 		SET_BIT(EXTI->PR, EXTI_PR_PR13);
 	} else
 	if (EXTI->PR & EXTI_PR_PR14) { // DOWN button
-		if (is_DOWN_pressed())
-			debug_msg("DOWN press\n");
-		else
-			debug_msg("DOWN released\n");
+		if (keypress_callback_func != NULL) {
+			if (is_DOWN_pressed())
+				(*keypress_callback_func)(KEY_DOWN, KEY_PRESSED);
+			else
+				(*keypress_callback_func)(KEY_DOWN, KEY_RELEASED);
+		}
 		SET_BIT(EXTI->PR, EXTI_PR_PR14);
 	} else {
 		debug_msg("Unknown interrupt source for EXTI15_10_IRQ. EXTI->PR=0x%x\n", EXTI->PR);
@@ -159,6 +192,9 @@ void EXTI15_10_IRQHandler()
 	}
 }
 
+/*******************************************************************************/
+/*	SHELL COMMANDS
+/*******************************************************************************/
 /*
  * Scan the buttons
  */

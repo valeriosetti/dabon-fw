@@ -2,6 +2,7 @@
 #define _KERNEL_H_
 
 #include "stdint.h"
+#include "utils.h"
 
 // Allowed task states
 #define TASK_STATE_DEAD 					0x00

@@ -18,6 +18,7 @@
 #include "sgtl5000.h"
 #include "shell.h"
 #include "buttons.h"
+#include "main_menu.h"
 
 #define debug_msg(_format_, ...)	debug_printf("[Kernel] " _format_, ##__VA_ARGS__)
 
@@ -57,7 +58,7 @@ static void kernel_initialize_modules()
 	oled_init();
 
 	// High level initializations
-
+	main_menu_init();
 
 	debug_msg("Initialization completed\n");
 }

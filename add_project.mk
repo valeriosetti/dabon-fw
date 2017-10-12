@@ -24,3 +24,9 @@ SRCS += $(PROJECT_PATH)/sources/utils.c
 SRCS += $(PROJECT_PATH)/sources/buttons.c
 				
 INCS += -I$(PROJECT_PATH)/includes
+
+
+SRCS += $(PROJECT_PATH)/ui/main_menu/main_menu.c
+
+INCS += -I$(PROJECT_PATH)/ui
+INCS += -I$(PROJECT_PATH)/ui/main_menu

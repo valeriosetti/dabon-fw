@@ -41,6 +41,9 @@ static int oled_power_off(void);
 // Global variables
 uint8_t contrast_level = 0x80;
 
+/*******************************************************************************/
+/*	BASIC FUNCTIONS
+/*******************************************************************************/
 /*
  *	This initialize the OLED display. Here we assume that the FSMC controller
  *	is already initialized.
@@ -161,4 +164,12 @@ void oled_set_contrast(uint8_t value)
 {
 	fsmc_write(FSMC_COMMAND_ADDRESS, SET_CONTRAST_CONTROL);
 	fsmc_write(FSMC_COMMAND_ADDRESS, value);
+}
+
+/*******************************************************************************/
+/*	DRAWING FUNCTIONS
+/*******************************************************************************/
+void oled_draw_image_at_xy(uint8_t* img, uint8_t x, uint8_t y, uint8_t width, uint8_t height)
+{
+
 }
