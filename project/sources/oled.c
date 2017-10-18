@@ -5,9 +5,11 @@
 #include "clock_configuration.h"
 #include "debug_printf.h"
 #include "fsmc.h"
-#include "dabon_logo.h"
+#include "dabon_logo.xbm"
 
 #define debug_msg(format, ...)		debug_printf("[oled] " format, ##__VA_ARGS__)
+
+#define OLED_VERTICAL_PAGE_SIZE		8
 
 // Macros
 #define oled_assert_reset()			SET_BIT(GPIOD->BSRR, GPIO_BSRR_BR9)
@@ -37,6 +39,9 @@ static int oled_power_off(void);
 #define SET_HIGHER_COLUMN_START_ADDRESS							0x10
 #define SET_LOWER_COLUMN_START_ADDRESS							0x00
 #define SET_MEMORY_ADDRESSING_METHOD							0x20
+	#define PAGE_ADDRESSING_MODE		0x02
+	#define HORIZONTAL_ADDRESSING_MODE	0x00
+	#define VERTICAL_ADDRESSING_MODE	0x01
 
 // Global variables
 uint8_t contrast_level = 0x80;
@@ -62,18 +67,9 @@ void oled_init()
 	// power on the display
 	oled_power_on();
 
-	// DEBUG
-	uint32_t dabon_logo_byte = 0;
-	unsigned char i,j,num = 0;
-	for(i=0;i<0x08;i++)
-	{
-		oled_set_page_start_address(i);
-		oled_set_column_start_address(0x00);
-		for(j=0;j<0x80;j++)
-		{
-			fsmc_write(FSMC_DATA_ADDRESS, dabon_logo[dabon_logo_byte++]);
-		}
-	}
+	// Draw the logo
+	oled_clear_display();
+	oled_draw_image_at_xy(dabon_logo_bits, (OLED_WIDTH-dabon_logo_height)/2, 0, dabon_logo_height, dabon_logo_width);
 }
 
 /*
@@ -98,7 +94,7 @@ static int oled_power_on()
 	fsmc_write(FSMC_COMMAND_ADDRESS, 0x14);
 	// set memory access method
 	fsmc_write(FSMC_COMMAND_ADDRESS, SET_MEMORY_ADDRESSING_METHOD);
-	fsmc_write(FSMC_COMMAND_ADDRESS, 0x10);
+	fsmc_write(FSMC_COMMAND_ADDRESS, VERTICAL_ADDRESSING_MODE);
 	// set start line address
 	fsmc_write(FSMC_COMMAND_ADDRESS, SET_START_LINE);
 	// set normal display
@@ -169,7 +165,40 @@ void oled_set_contrast(uint8_t value)
 /*******************************************************************************/
 /*	DRAWING FUNCTIONS
 /*******************************************************************************/
+/*
+ * Draw the specified image at (x,y) coordinates
+ */
 void oled_draw_image_at_xy(uint8_t* img, uint8_t x, uint8_t y, uint8_t width, uint8_t height)
 {
+	uint8_t* data_ptr = img;
+	uint16_t writes_left = width*(height/OLED_VERTICAL_PAGE_SIZE);
 
+	// The vertical dimensions should be expressed in multiples of oled's page vertical size
+	y = y/OLED_VERTICAL_PAGE_SIZE;
+
+	oled_set_page_start_address(y);
+	oled_set_column_start_address(x);
+
+	while (writes_left > 0) {
+		fsmc_write(FSMC_DATA_ADDRESS, *data_ptr);
+		data_ptr++;
+		writes_left--;
+	}
+}
+
+/*
+ * Clear the entire display
+ */
+void oled_clear_display()
+{
+	uint8_t row, col;
+
+	oled_set_page_start_address(0);
+	oled_set_column_start_address(0);
+
+	for (col=0; col<OLED_WIDTH; col++) {
+		for (row=0; row<(OLED_HEIGTH/OLED_VERTICAL_PAGE_SIZE); row++) {
+			fsmc_write(FSMC_DATA_ADDRESS, 0x00);
+		}
+	}
 }
