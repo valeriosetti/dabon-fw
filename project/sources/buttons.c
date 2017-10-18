@@ -62,7 +62,7 @@ void buttons_init()
 
 	// Set the interrupt's source
 	MODIFY_REG(SYSCFG->EXTICR[0], SYSCFG_EXTICR1_EXTI0_Msk | SYSCFG_EXTICR1_EXTI1_Msk,
-				SYSCFG_EXTICR1_EXTI0_PC | SYSCFG_EXTICR1_EXTI1_PC);
+				SYSCFG_EXTICR1_EXTI0_PE | SYSCFG_EXTICR1_EXTI1_PC);
 	MODIFY_REG(SYSCFG->EXTICR[1], SYSCFG_EXTICR2_EXTI4_Msk | SYSCFG_EXTICR2_EXTI5_Msk,
 				SYSCFG_EXTICR2_EXTI4_PC | SYSCFG_EXTICR2_EXTI5_PC);
 	MODIFY_REG(SYSCFG->EXTICR[3], SYSCFG_EXTICR4_EXTI12_Msk | SYSCFG_EXTICR4_EXTI13_Msk | SYSCFG_EXTICR4_EXTI14_Msk,
@@ -110,10 +110,10 @@ int32_t buttons_remove_key_event_callback(void)
 void EXTI0_IRQHandler()
 {
 	if (keypress_callback_func != NULL) {
-		if (is_VOL_UP_pressed())
-			(*keypress_callback_func)(KEY_VOL_UP, KEY_PRESSED);
+		if (is_CANCEL_pressed())
+			(*keypress_callback_func)(KEY_CANCEL, KEY_PRESSED);
 		else
-			(*keypress_callback_func)(KEY_VOL_UP, KEY_RELEASED);
+			(*keypress_callback_func)(KEY_CANCEL, KEY_RELEASED);
 	}
 
 	SET_BIT(EXTI->PR, EXTI_PR_PR0);

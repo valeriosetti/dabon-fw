@@ -19,6 +19,7 @@
 #include "shell.h"
 #include "buttons.h"
 #include "main_menu.h"
+#include "file_browser.h"
 
 #define debug_msg(_format_, ...)	debug_printf("[Kernel] " _format_, ##__VA_ARGS__)
 
@@ -59,6 +60,7 @@ static void kernel_initialize_modules()
 
 	// High level initializations
 	main_menu_init();
+	file_browser_init();
 
 	debug_msg("Initialization completed\n");
 }

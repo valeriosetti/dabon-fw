@@ -36,7 +36,7 @@ uint8_t received_key;
  */
 void main_menu_key_event(uint8_t key, uint8_t event)
 {
-	//debug_msg("key %d - event %d\n", key, event);
+	debug_msg("key %d - event %d\n", key, event);
 
 	// Ignore release events
 	if (event == KEY_RELEASED)
@@ -53,7 +53,15 @@ void main_menu_init()
 {
 	kernel_init_task(&main_menu_task);
 	kernel_activate_task_after_ms(&main_menu_task, 2000);
+	buttons_register_key_event_callback(&main_menu_key_event);
+}
 
+/*
+ * Activate the module
+ */
+void main_menu_start()
+{
+	kernel_activate_task_immediately(&main_menu_task);
 	buttons_register_key_event_callback(&main_menu_key_event);
 }
 
@@ -70,8 +78,9 @@ int32_t main_menu_task_func(void* arg)
 			current_item = (current_item == (array_size(menu_items)-1)) ? 0 : current_item+1;
 		}
 	} else if (received_key == KEY_OK) {
-		//kernel_kill_task(&main_menu_task);
+		buttons_remove_key_event_callback();
 		menu_items[current_item].onClick();
+		return DIE;
 	}
 
 	oled_clear_display();
@@ -107,4 +116,5 @@ void DabRadioClick(void)
 void SdCardClick(void)
 {
 	debug_msg("sd card click\n");
+	file_browser_start();
 }
