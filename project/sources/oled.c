@@ -6,10 +6,9 @@
 #include "debug_printf.h"
 #include "fsmc.h"
 #include "dabon_logo.xbm"
+#include "font-5x7.h"
 
 #define debug_msg(format, ...)		debug_printf("[oled] " format, ##__VA_ARGS__)
-
-#define OLED_VERTICAL_PAGE_SIZE		8
 
 // Macros
 #define oled_assert_reset()			SET_BIT(GPIOD->BSRR, GPIO_BSRR_BR9)
@@ -162,6 +161,17 @@ void oled_set_contrast(uint8_t value)
 	fsmc_write(FSMC_COMMAND_ADDRESS, value);
 }
 
+/*
+ * Draw a single char on the screen
+ */
+static void oled_draw_single_char(char ch)
+{
+	uint16_t col;
+	for (col=0; col<FONT_CHAR_WIDTH; col++) {
+		fsmc_write(FSMC_DATA_ADDRESS, font_data[FONT_CHAR_WIDTH*(uint16_t)ch + col]);
+	}
+}
+
 /*******************************************************************************/
 /*	DRAWING FUNCTIONS
 /*******************************************************************************/
@@ -200,5 +210,23 @@ void oled_clear_display()
 		for (row=0; row<(OLED_HEIGTH/OLED_VERTICAL_PAGE_SIZE); row++) {
 			fsmc_write(FSMC_DATA_ADDRESS, 0x00);
 		}
+	}
+}
+
+/*
+ * Write the specified text starting at (x,y) coordinates
+ */
+void oled_print_text_at_xy(char* text, uint8_t x, uint8_t y)
+{
+	oled_set_page_start_address(y);
+	oled_set_column_start_address(x);
+
+	uint8_t char_count = 0;
+
+	while ((text != '\0') || (char_count<OLED_MAX_CHARS_IN_LINE)) {
+		char ch = *text;
+		oled_draw_single_char(ch);
+		text++;
+		char_count++;
 	}
 }
