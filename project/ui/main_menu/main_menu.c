@@ -1,9 +1,9 @@
 #include "kernel.h"
-#include "sd_card_icon.xbm"
-#include "fm_radio_icon.xbm"
-#include "dab_radio_icon.xbm"
-#include "left_arrow.xbm"
-#include "right_arrow.xbm"
+#include "sd_card_icon.h"
+#include "fm_radio_icon.h"
+#include "dab_radio_icon.h"
+#include "left_arrow.h"
+#include "right_arrow.h"
 #include "debug_printf.h"
 #include "buttons.h"
 #include "oled.h"
@@ -19,14 +19,14 @@ void DabRadioClick(void);
 void SdCardClick(void);
 
 typedef struct {
-	unsigned char* icon;
+	const uint8_t* icon;
 	void (*onClick)(void);
 }MENU_ITEM;
 
 MENU_ITEM menu_items[] = {
-		{fm_radio_icon_bits, FmRadioClick},
-		{dab_radio_icon_bits, DabRadioClick},
-		{sd_card_icon_bits, SdCardClick},
+		{fm_radio_icon_data, FmRadioClick},
+		{dab_radio_icon_data, DabRadioClick},
+		{sd_card_icon_data, SdCardClick},
 };
 
 uint8_t received_key;
@@ -85,8 +85,8 @@ int32_t main_menu_task_func(void* arg)
 
 	oled_clear_display();
 	// Draw left and right arrows
-	oled_draw_image_at_xy(left_arrow_bits, 0, 0, right_arrow_height, right_arrow_width);
-	oled_draw_image_at_xy(right_arrow_bits, OLED_WIDTH - right_arrow_height, 0, right_arrow_height, right_arrow_width);
+	oled_draw_image_at_xy(left_arrow_data, 0, 0, left_arrow_width, left_arrow_height);
+	oled_draw_image_at_xy(right_arrow_data, OLED_WIDTH - right_arrow_width, 0, right_arrow_width, right_arrow_height);
 	// Draw current item on the center
 	oled_draw_image_at_xy(menu_items[current_item].icon, (OLED_WIDTH-dab_radio_icon_width)/2, 0,
 							dab_radio_icon_width, dab_radio_icon_height);

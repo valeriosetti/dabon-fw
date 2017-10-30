@@ -19,6 +19,7 @@ OBJ_PATH = ./build/objs
 C_OBJS = $(addprefix $(OBJ_PATH)/, $(notdir $(SRCS:.c=.o)))
 ASM_OBJS = $(addprefix $(OBJ_PATH)/, $(notdir $(ASMS:.s=.o)))
 FWS_OBJS = $(addprefix $(OBJ_PATH)/, $(notdir $(FWS:.bin=.o)))
+CONV_IMGS = $(IMAGES:.bmp=.h)
 
 # Add to VPATH the list of directories for source files
 VPATH = $(dir $(SRCS)) \
@@ -44,9 +45,9 @@ CFLAGS += -D$(TUNER_CONFIG)
 # Removed options = -Wall  -mthumb-interwork --specs=nosys.specs 
 
 ###############################################################################
-.PHONY: check_flags
+.PHONY: check_flags clean_images
 
-all : check_flags $(OUT_PATH)/$(PROJ_NAME).elf
+all : check_flags $(CONV_IMGS) $(OUT_PATH)/$(PROJ_NAME).elf
 	@echo "Creating HEX and BIN files"
 	@$(OBJCOPY) -O ihex $(OUT_PATH)/$(PROJ_NAME).elf $(OUT_PATH)/$(PROJ_NAME).hex
 	@$(OBJCOPY) -O binary $(OUT_PATH)/$(PROJ_NAME).elf $(OUT_PATH)/$(PROJ_NAME).bin
@@ -61,6 +62,9 @@ endif
 endif
 endif
 	@echo "Tuner version --> $(TUNER_CONFIG)"
+	
+$(CONV_IMGS) : %.h : %.bmp
+	@python3 $(IMAGE_CONVERTER_SCRIPT)  $< $@
 
 $(OUT_PATH)/$(PROJ_NAME).elf : $(C_OBJS) $(ASM_OBJS) $(FWS_OBJS)
 #	@echo $(CFLAGS)
@@ -80,7 +84,10 @@ $(ASM_OBJS) : $(OBJ_PATH)/%.o : %.s
 	@echo "Compiling " $<
 	@$(CC) -c $(CFLAGS) $< -o $@
 
-clean: 
+clean_images:
+	rm -f $(CONV_IMGS)
+
+clean: clean_images
 	rm -f $(OBJ_PATH)/*.o
 	rm -f $(OUT_PATH)/$(PROJ_NAME).*
 	rm -f .dep/*

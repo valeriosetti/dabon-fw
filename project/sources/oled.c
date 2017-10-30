@@ -5,7 +5,7 @@
 #include "clock_configuration.h"
 #include "debug_printf.h"
 #include "fsmc.h"
-#include "dabon_logo.xbm"
+#include "dabon_logo.h"
 #include "font-5x7.h"
 
 #define debug_msg(format, ...)		debug_printf("[oled] " format, ##__VA_ARGS__)
@@ -68,7 +68,7 @@ void oled_init()
 
 	// Draw the logo
 	oled_clear_display();
-	oled_draw_image_at_xy(dabon_logo_bits, (OLED_WIDTH-dabon_logo_height)/2, 0, dabon_logo_height, dabon_logo_width);
+	oled_draw_image_at_xy(dabon_logo_data, (OLED_WIDTH-dabon_logo_width)/2, 0, dabon_logo_width, dabon_logo_height);
 }
 
 /*
@@ -178,9 +178,9 @@ static void oled_draw_single_char(char ch)
 /*
  * Draw the specified image at (x,y) coordinates
  */
-void oled_draw_image_at_xy(uint8_t* img, uint8_t x, uint8_t y, uint8_t width, uint8_t height)
+void oled_draw_image_at_xy(const uint8_t* img, uint8_t x, uint8_t y, uint8_t width, uint8_t height)
 {
-	uint8_t* data_ptr = img;
+	uint8_t* data_ptr = (uint8_t*)img;
 	uint16_t writes_left = width*(height/OLED_VERTICAL_PAGE_SIZE);
 
 	// The vertical dimensions should be expressed in multiples of oled's page vertical size

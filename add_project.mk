@@ -26,9 +26,20 @@ SRCS += $(PROJECT_PATH)/sources/buttons.c
 INCS += -I$(PROJECT_PATH)/includes
 
 
+
+
 SRCS += $(PROJECT_PATH)/ui/main_menu/main_menu.c
 SRCS += $(PROJECT_PATH)/ui/file_browser/file_browser.c
 
 INCS += -I$(PROJECT_PATH)/ui
 INCS += -I$(PROJECT_PATH)/ui/main_menu
 INCS += -I$(PROJECT_PATH)/ui/file_browser
+
+IMAGE_CONVERTER_SCRIPT = $(PROJECT_PATH)/ui/image_converter.py
+IMAGES +=
+IMAGES += $(PROJECT_PATH)/ui/dabon_logo.bmp
+IMAGES += $(PROJECT_PATH)/ui/main_menu/dab_radio_icon.bmp
+IMAGES += $(PROJECT_PATH)/ui/main_menu/fm_radio_icon.bmp
+IMAGES += $(PROJECT_PATH)/ui/main_menu/sd_card_icon.bmp
+IMAGES += $(PROJECT_PATH)/ui/main_menu/left_arrow.bmp
+IMAGES += $(PROJECT_PATH)/ui/main_menu/right_arrow.bmp
