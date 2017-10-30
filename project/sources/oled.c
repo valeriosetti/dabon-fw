@@ -93,7 +93,7 @@ static int oled_power_on()
 	fsmc_write(FSMC_COMMAND_ADDRESS, 0x14);
 	// set memory access method
 	fsmc_write(FSMC_COMMAND_ADDRESS, SET_MEMORY_ADDRESSING_METHOD);
-	fsmc_write(FSMC_COMMAND_ADDRESS, VERTICAL_ADDRESSING_MODE);
+	fsmc_write(FSMC_COMMAND_ADDRESS, HORIZONTAL_ADDRESSING_MODE);
 	// set start line address
 	fsmc_write(FSMC_COMMAND_ADDRESS, SET_START_LINE);
 	// set normal display
