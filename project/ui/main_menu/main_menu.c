@@ -23,7 +23,7 @@ typedef struct {
 	void (*onClick)(void);
 }MENU_ITEM;
 
-MENU_ITEM menu_items[] = {
+static MENU_ITEM menu_items[] = {
 		{fm_radio_icon_data, FmRadioClick},
 		{dab_radio_icon_data, DabRadioClick},
 		{sd_card_icon_data, SdCardClick},
