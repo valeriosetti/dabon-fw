@@ -30,6 +30,7 @@ INCS += -I$(PROJECT_PATH)/includes
 
 SRCS += $(PROJECT_PATH)/ui/main_menu/main_menu.c
 SRCS += $(PROJECT_PATH)/ui/file_browser/file_browser.c
+SRCS += $(PROJECT_PATH)/ui/music_player/music_player.c
 
 INCS += -I$(PROJECT_PATH)/ui
 INCS += -I$(PROJECT_PATH)/ui/main_menu
