@@ -93,10 +93,10 @@ static int oled_power_on()
 	fsmc_write(FSMC_COMMAND_ADDRESS, 0x14);
 	// set memory access method
 	fsmc_write(FSMC_COMMAND_ADDRESS, SET_MEMORY_ADDRESSING_METHOD);
-	fsmc_write(FSMC_COMMAND_ADDRESS, HORIZONTAL_ADDRESSING_MODE);
+	fsmc_write(FSMC_COMMAND_ADDRESS, PAGE_ADDRESSING_MODE);
 	// set start line address
 	fsmc_write(FSMC_COMMAND_ADDRESS, SET_START_LINE);
-	// set normal display
+	// set normal color display
 	fsmc_write(FSMC_COMMAND_ADDRESS, SET_NORMAL_DISPLAY);
 	// set entire display on
 	fsmc_write(FSMC_COMMAND_ADDRESS, ENTIRE_DISPLAY_ON);
@@ -167,8 +167,9 @@ void oled_set_contrast(uint8_t value)
 static void oled_draw_single_char(char ch)
 {
 	uint16_t col;
+
 	for (col=0; col<FONT_CHAR_WIDTH; col++) {
-		fsmc_write(FSMC_DATA_ADDRESS, font_data[FONT_CHAR_WIDTH*(uint16_t)ch + col]);
+		fsmc_write(FSMC_DATA_ADDRESS, font_data[ch][col]);
 	}
 }
 
@@ -182,17 +183,24 @@ void oled_draw_image_at_xy(const uint8_t* img, uint8_t x, uint8_t y, uint8_t wid
 {
 	uint8_t* data_ptr = (uint8_t*)img;
 	uint16_t writes_left = width*(height/OLED_VERTICAL_PAGE_SIZE);
+	uint16_t col, row;
 
 	// The vertical dimensions should be expressed in multiples of oled's page vertical size
 	y = y/OLED_VERTICAL_PAGE_SIZE;
+	height = height/8;
 
-	oled_set_page_start_address(y);
-	oled_set_column_start_address(x);
+	if ( (x+width)>OLED_WIDTH || (y+height)>(OLED_HEIGTH/OLED_VERTICAL_PAGE_SIZE) || height==0 ) {
+		debug_msg("Error: wrong image size\n");
+	}
 
-	while (writes_left > 0) {
-		fsmc_write(FSMC_DATA_ADDRESS, *data_ptr);
-		data_ptr++;
-		writes_left--;
+	for (row=y; row<(y+height); row++) {
+		oled_set_page_start_address(row);
+		oled_set_column_start_address(x);
+		for (col=x; col<(x+width); col++) {
+			fsmc_write(FSMC_DATA_ADDRESS, *data_ptr);
+			data_ptr++;
+			writes_left--;
+		}
 	}
 }
 
@@ -203,14 +211,26 @@ void oled_clear_display()
 {
 	uint8_t row, col;
 
-	oled_set_page_start_address(0);
-	oled_set_column_start_address(0);
-
-	for (col=0; col<OLED_WIDTH; col++) {
-		for (row=0; row<(OLED_HEIGTH/OLED_VERTICAL_PAGE_SIZE); row++) {
+	for (row=0; row<(OLED_HEIGTH/OLED_VERTICAL_PAGE_SIZE); row++) {
+		oled_set_page_start_address(row);
+		oled_set_column_start_address(0);
+		for (col=0; col<OLED_WIDTH; col++) {
 			fsmc_write(FSMC_DATA_ADDRESS, 0x00);
 		}
 	}
+}
+
+/*
+ * Print a single char at the given coordinate
+ */
+void oled_print_char_at_xy(char ch, uint8_t x, uint8_t y)
+{
+	if (x+FONT_CHAR_WIDTH > OLED_WIDTH)
+		return;
+
+	oled_set_page_start_address(y);
+	oled_set_column_start_address(x);
+	oled_draw_single_char(ch);
 }
 
 /*
@@ -221,12 +241,28 @@ void oled_print_text_at_xy(char* text, uint8_t x, uint8_t y)
 	oled_set_page_start_address(y);
 	oled_set_column_start_address(x);
 
-	uint8_t char_count = 0;
-
-	while ((text != '\0') || (char_count<OLED_MAX_CHARS_IN_LINE)) {
+	x += FONT_CHAR_WIDTH;
+	while ((*text != '\0') && (x<OLED_WIDTH)) {
 		char ch = *text;
 		oled_draw_single_char(ch);
+		x += FONT_CHAR_WIDTH;
 		text++;
-		char_count++;
+	}
+}
+
+/*
+ * Invert the colors of the specified line without changing its content
+ */
+void oled_invert_line_color(uint8_t y)
+{
+	oled_set_page_start_address(y);
+
+	uint8_t col;
+	uint8_t data;
+	for (col=0; col<OLED_WIDTH; col++) {
+		oled_set_column_start_address(col);
+		data = fsmc_read(FSMC_DATA_ADDRESS);
+		oled_set_column_start_address(col);
+		fsmc_write(FSMC_DATA_ADDRESS, data ^ 0xFF);
 	}
 }
