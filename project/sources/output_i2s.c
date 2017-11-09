@@ -32,16 +32,20 @@ I2S_PLL_CONFIG 	i2s_pll_configurations[] = {
 #define PLL_CONFIGURATIONS_COUNT  		(sizeof(i2s_pll_configurations)/sizeof(I2S_PLL_CONFIG))
 
 // DMA buffers
-#define DMA_BUFFERS_SIZE	    4096
-int16_t dma_buffers[2][2*DMA_BUFFERS_SIZE];
+#define DMA_BUFFERS_SIZE	    (4096*2)
+int16_t dma_buffers[2][DMA_BUFFERS_SIZE];
 
 // Output (circular) buffer which holds samples before being copied to the DMA ones
-#define OUTPUT_BUFFER_SIZE      4096
+#define OUTPUT_BUFFER_SIZE      (4096*2)
 struct {
-    int16_t samples[2*4096];
-    int16_t start_index;
+    int16_t samples[2*OUTPUT_BUFFER_SIZE];
+    uint16_t start_index;
+    uint16_t stop_index;
     int16_t count;
 } output_buffer;
+
+// Callback function to signal that the buffer has been freed
+void (*free_buff_space_callback)(void);
 
 // Interrupt handling task
 ALLOCATE_TASK(output_i2s, 1);
@@ -49,29 +53,6 @@ ALLOCATE_TASK(output_i2s, 1);
 // Macros
 #define I2S3_enable()		do{ SET_BIT(SPI3->I2SCFGR, SPI_I2SCFGR_I2SE);	} while(0)
 #define I2S3_disable()		do{ CLEAR_BIT(SPI3->I2SCFGR, SPI_I2SCFGR_I2SE);	} while(0)
-
-/*********************************************************************************************/
-/*		PRIVATE FUNCTIONS
-/*********************************************************************************************/
-int32_t sine_look_up_table[] = {
-		0x8000,0x90b5,0xa120,0xb0fb,0xbfff,0xcdeb,0xda82,0xe58c,
-		0xeed9,0xf641,0xfba2,0xfee7,0xffff,0xfee7,0xfba2,0xf641,
-		0xeed9,0xe58c,0xda82,0xcdeb,0xbfff,0xb0fb,0xa120,0x90b5,
-		0x8000,0x6f4a,0x5edf,0x4f04,0x4000,0x3214,0x257d,0x1a73,
-		0x1126,0x9be,0x45d,0x118,0x0,0x118,0x45d,0x9be,
-		0x1126,0x1a73,0x257d,0x3214,0x4000,0x4f04,0x5edf,0x6f4a
-};
-
-#define array_length(_x_)	(sizeof(_x_)/sizeof(_x_[0]))
-
-static void output_i2s_initialize_buffers()
-{
-	uint16_t index;
-	for (index=0; index<array_length(sine_look_up_table); index++) {
-		dma_buffers[0][2*index] = dma_buffers[0][2*index+1] = (int16_t)(sine_look_up_table[index] - 0x8000);
-		dma_buffers[1][2*index] = dma_buffers[1][2*index+1] = (int16_t)(sine_look_up_table[index] - 0x8000);
-	}
-}
 
 /*********************************************************************************************/
 /*		PUBLIC FUNCTIONS
@@ -88,9 +69,10 @@ int32_t output_i2s_init()
     // Configure buffers
     output_buffer.count = 0;
     output_buffer.start_index = 0;
+    output_buffer.stop_index = 0;
     memset(output_buffer.samples, 0, sizeof(output_buffer.samples));
-    memset(dma_buffers[0], 0, sizeof(dma_buffers[0]));
-    memset(dma_buffers[1], 0, sizeof(dma_buffers[1]));
+    memset(dma_buffers[0], 0, DMA_BUFFERS_SIZE*sizeof(int16_t));
+    memset(dma_buffers[1], 0, DMA_BUFFERS_SIZE*sizeof(int16_t));
 
 	// Enable the GPIOB's peripheral clock
 	RCC_GPIOA_CLK_ENABLE();
@@ -138,7 +120,7 @@ int32_t output_i2s_init()
 	SET_BIT(DMA1_Stream7->CR, DMA_SxCR_DBM);
 	MODIFY_REG(DMA1_Stream7->CR, DMA_SxCR_DIR_Msk, 1UL << DMA_SxCR_DIR_Pos);
 	// Set the DMA source and destination addresses
-	DMA1_Stream7->NDTR = DMA_BUFFERS_SIZE*2;
+	DMA1_Stream7->NDTR = DMA_BUFFERS_SIZE;
 	DMA1_Stream7->PAR = (uint32_t) &(SPI3->DR);
 	DMA1_Stream7->M0AR = (uint32_t) dma_buffers[0];
 	DMA1_Stream7->M1AR = (uint32_t) dma_buffers[1];
@@ -199,6 +181,52 @@ int32_t output_i2s_ConfigurePLL(uint32_t samplig_freq)
 	return 0;
 }
 
+/*
+ * Enqueue samples into the local buffer (if there's enough space available)
+ */
+int32_t output_i2s_enqueue_samples(int16_t* data, uint16_t samples_count)
+{
+	// check if there's enough space to store incoming samples
+	if (samples_count > (OUTPUT_BUFFER_SIZE-output_buffer.count))
+		return -1;
+
+	uint16_t data_to_copy;
+	while (samples_count > 0) {
+		if (output_buffer.stop_index + samples_count < OUTPUT_BUFFER_SIZE) {
+			data_to_copy = samples_count;
+			memcpy(&output_buffer.samples[output_buffer.stop_index], data, data_to_copy*sizeof(int16_t));
+			output_buffer.stop_index += data_to_copy;
+		} else {
+			data_to_copy = (OUTPUT_BUFFER_SIZE-1) - output_buffer.stop_index;
+			memcpy(&output_buffer.samples[output_buffer.stop_index], data, data_to_copy*sizeof(int16_t));
+			output_buffer.stop_index = 0;
+		}
+		samples_count -= data_to_copy;
+		data += data_to_copy;
+		output_buffer.count += data_to_copy;
+	}
+
+	return 0;
+}
+
+/*
+ * Return the free space of the local buffer
+ */
+uint32_t output_i2s_get_buffer_free_space()
+{
+	return (OUTPUT_BUFFER_SIZE - output_buffer.count);
+}
+
+/*
+ * Register a callback function which should be called when the local buffer is
+ * partially freed.
+ * A NULL input parameters clears the callback.
+ */
+void output_i2s_register_callback(void (*func)(void))
+{
+	free_buff_space_callback = func;
+}
+
 /*********************************************************************************************/
 /*		INTERRUPT HANDLING
 /*********************************************************************************************/
@@ -222,32 +250,36 @@ int32_t output_i2s_task_func(void* arg)
 {
     // Update the data on the buffer which is idle (if playing 1 then update 0 and viceversa)
     int16_t* dma_ptr = (READ_BIT(DMA1_Stream7->CR, DMA_SxCR_CT)) ? dma_buffers[0] : dma_buffers[1];
-    uint16_t copied_data = 0;
+    uint16_t remaining_data = DMA_BUFFERS_SIZE;
     uint16_t data_to_copy;
     
-    while (copied_data<DMA_BUFFERS_SIZE) {
+    while (remaining_data > 0) {
         // Check if there's something valid inside the output_buffer, otherwise fill the remaining
         // space with 0
         if (output_buffer.count > 0) {
-            // Can this operation be peformed with a single copy or is it necessary to restart from 
-            // the beginning of output_buffer?
-            if (output_buffer.start_index+output_buffer.count < OUTPUT_BUFFER_SIZE) {
-                data_to_copy = OUTPUT_BUFFER_SIZE;
-                memcpy(dma_ptr, &output_buffer.samples[output_buffer.start_index], data_to_copy);
-                output_buffer.start_index += data_to_copy;
-            } else {
-                data_to_copy = OUTPUT_BUFFER_SIZE - output_buffer.start_index;
-                memcpy(dma_ptr, &output_buffer.samples[output_buffer.start_index], data_to_copy);
-                output_buffer.start_index = 0;
-            }
-            output_buffer.count -= data_to_copy;
-            copied_data += data_to_copy;
-            dma_ptr += data_to_copy;
+        	// compute the amount of data that should be copied
+        	data_to_copy = (output_buffer.count<DMA_BUFFERS_SIZE) ? output_buffer.count : DMA_BUFFERS_SIZE;
+        	// check if the copy can be performed with a single operation or in multiple steps
+        	if (output_buffer.start_index + data_to_copy - 1 < OUTPUT_BUFFER_SIZE) {
+        		// do not limit data_to_copy in this case
+        		memcpy(dma_ptr, &output_buffer.samples[output_buffer.start_index], data_to_copy*sizeof(int16_t));
+        		output_buffer.start_index += data_to_copy;
+        	} else {
+        		data_to_copy = OUTPUT_BUFFER_SIZE - output_buffer.start_index;
+        		memcpy(dma_ptr, &output_buffer.samples[output_buffer.start_index], data_to_copy*sizeof(int16_t));
+        		output_buffer.start_index = 0;
+        	}
+        	dma_ptr += data_to_copy;
+        	output_buffer.count -= data_to_copy;
+        	remaining_data -= data_to_copy;
         } else {
-            memset(dma_ptr, 0, DMA_BUFFERS_SIZE-copied_data);
-            copied_data = DMA_BUFFERS_SIZE;
+            memset(dma_ptr, 0, remaining_data*sizeof(int16_t));
+            remaining_data = 0;
         }
     }
-    
+
+	if (free_buff_space_callback != NULL)
+		(*free_buff_space_callback)();
+
     return WAIT_FOR_RESUME;
 }

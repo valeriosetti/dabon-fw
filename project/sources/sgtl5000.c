@@ -676,7 +676,7 @@ Exit:
 }
 
 /*
- * Retrun the current hp_out volume (in 0.1*dB)
+ * Return the current hp_out volume (in 0.1*dB)
  */
 int32_t sgtl5000_get_hp_out_volume(int16_t* value)
 {
