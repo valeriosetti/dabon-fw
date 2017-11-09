@@ -5,6 +5,8 @@
 #include "utils.h"
 #include "debug_printf.h"
 #include "systick.h"
+#include "string.h"
+#include "kernel.h"
 
 #define debug_msg(format, ...)		debug_printf("[output_i2s] " format, ##__VA_ARGS__)
 
@@ -29,12 +31,20 @@ I2S_PLL_CONFIG 	i2s_pll_configurations[] = {
 };
 #define PLL_CONFIGURATIONS_COUNT  		(sizeof(i2s_pll_configurations)/sizeof(I2S_PLL_CONFIG))
 
-// Output buffers
-#define DMA_BUFFERS_SIZE	3984//4000
-#define DMA_BUFFERS_COUNT   4
-int16_t dma_buffers[DMA_BUFFERS_COUNT][2*DMA_BUFFERS_SIZE];
-uint16_t current_playing_buffer = 0;
-uint16_t next_playing_buffer = 1;
+// DMA buffers
+#define DMA_BUFFERS_SIZE	    4096
+int16_t dma_buffers[2][2*DMA_BUFFERS_SIZE];
+
+// Output (circular) buffer which holds samples before being copied to the DMA ones
+#define OUTPUT_BUFFER_SIZE      4096
+struct {
+    int16_t samples[2*4096];
+    int16_t start_index;
+    int16_t count;
+} output_buffer;
+
+// Interrupt handling task
+ALLOCATE_TASK(output_i2s, 1);
 
 // Macros
 #define I2S3_enable()		do{ SET_BIT(SPI3->I2SCFGR, SPI_I2SCFGR_I2SE);	} while(0)
@@ -60,8 +70,6 @@ static void output_i2s_initialize_buffers()
 	for (index=0; index<array_length(sine_look_up_table); index++) {
 		dma_buffers[0][2*index] = dma_buffers[0][2*index+1] = (int16_t)(sine_look_up_table[index] - 0x8000);
 		dma_buffers[1][2*index] = dma_buffers[1][2*index+1] = (int16_t)(sine_look_up_table[index] - 0x8000);
-		dma_buffers[2][2*index] = dma_buffers[2][2*index+1] = (int16_t)(sine_look_up_table[index] - 0x8000);
-		dma_buffers[3][2*index] = dma_buffers[3][2*index+1] = (int16_t)(sine_look_up_table[index] - 0x8000);
 	}
 }
 
@@ -71,11 +79,18 @@ static void output_i2s_initialize_buffers()
 /*
  * Initialize the I2S peripheral
  */
-int output_i2s_init()
+int32_t output_i2s_init()
 {
 	int ret_val;
-
-	output_i2s_initialize_buffers();
+    
+    kernel_init_task(&output_i2s_task);
+    
+    // Configure buffers
+    output_buffer.count = 0;
+    output_buffer.start_index = 0;
+    memset(output_buffer.samples, 0, sizeof(output_buffer.samples));
+    memset(dma_buffers[0], 0, sizeof(dma_buffers[0]));
+    memset(dma_buffers[1], 0, sizeof(dma_buffers[1]));
 
 	// Enable the GPIOB's peripheral clock
 	RCC_GPIOA_CLK_ENABLE();
@@ -140,7 +155,7 @@ int output_i2s_init()
 /*
  * Configure the PLL
  */
-int output_i2s_ConfigurePLL(uint32_t samplig_freq)
+int32_t output_i2s_ConfigurePLL(uint32_t samplig_freq)
 {
 	// Look for the specified sample rate frequency in the list of allowed configurations
 	uint8_t index = 0;
@@ -184,31 +199,55 @@ int output_i2s_ConfigurePLL(uint32_t samplig_freq)
 	return 0;
 }
 
+/*********************************************************************************************/
+/*		INTERRUPT HANDLING
+/*********************************************************************************************/
 /*
  * ISR - This interrupt is triggered every time the DMA completes the buffer transmission
  */
 void DMA1_Stream7_IRQHandler(void)
 {
-	if (DMA1->HISR & (DMA_HISR_TEIF7 | DMA_HISR_DMEIF7)) {
+    if (DMA1->HISR & (DMA_HISR_TEIF7 | DMA_HISR_DMEIF7)) {
 		debug_msg("Error in DMA transfer\n");
 	}
 	DMA1->HIFCR = (DMA_HIFCR_CTCIF7 | DMA_HIFCR_CHTIF7 | DMA_HIFCR_CTEIF7 | DMA_HIFCR_CDMEIF7 | DMA_HIFCR_CFEIF7);
 
-	// Clear the completed buffer
-	memset(dma_buffers[current_playing_buffer], current_playing_buffer, sizeof(dma_buffers[current_playing_buffer]));
-    
-    // Update the "memory address" source register which is not currently playing
-    current_playing_buffer = next_playing_buffer;
-    next_playing_buffer = current_playing_buffer + 1;
-    if (next_playing_buffer >= DMA_BUFFERS_COUNT) {
-        next_playing_buffer = 0;
-    }
-    
-    if (READ_BIT(DMA1_Stream7->CR, DMA_SxCR_CT)) {
-        DMA1_Stream7->M0AR = (uint32_t) dma_buffers[next_playing_buffer];
-    } else {
-        DMA1_Stream7->M1AR = (uint32_t) dma_buffers[next_playing_buffer];
-    }
-    debug_msg("%d\n", next_playing_buffer);
+    kernel_activate_task_immediately(&output_i2s_task);
 }
 
+/*
+ * This task copies data from the input buffer to the DMA's ones
+ */
+int32_t output_i2s_task_func(void* arg)
+{
+    // Update the data on the buffer which is idle (if playing 1 then update 0 and viceversa)
+    int16_t* dma_ptr = (READ_BIT(DMA1_Stream7->CR, DMA_SxCR_CT)) ? dma_buffers[0] : dma_buffers[1];
+    uint16_t copied_data = 0;
+    uint16_t data_to_copy;
+    
+    while (copied_data<DMA_BUFFERS_SIZE) {
+        // Check if there's something valid inside the output_buffer, otherwise fill the remaining
+        // space with 0
+        if (output_buffer.count > 0) {
+            // Can this operation be peformed with a single copy or is it necessary to restart from 
+            // the beginning of output_buffer?
+            if (output_buffer.start_index+output_buffer.count < OUTPUT_BUFFER_SIZE) {
+                data_to_copy = OUTPUT_BUFFER_SIZE;
+                memcpy(dma_ptr, &output_buffer.samples[output_buffer.start_index], data_to_copy);
+                output_buffer.start_index += data_to_copy;
+            } else {
+                data_to_copy = OUTPUT_BUFFER_SIZE - output_buffer.start_index;
+                memcpy(dma_ptr, &output_buffer.samples[output_buffer.start_index], data_to_copy);
+                output_buffer.start_index = 0;
+            }
+            output_buffer.count -= data_to_copy;
+            copied_data += data_to_copy;
+            dma_ptr += data_to_copy;
+        } else {
+            memset(dma_ptr, 0, DMA_BUFFERS_SIZE-copied_data);
+            copied_data = DMA_BUFFERS_SIZE;
+        }
+    }
+    
+    return WAIT_FOR_RESUME;
+}
