@@ -11,6 +11,7 @@
 #define TASK_STATE_WAITING_FOR_RESUME		0x04
 
 // Task return options (other than "real" sleeping values)
+#define IMMEDIATELY     	((int32_t)0)
 #define WAIT_FOR_RESUME     ((int32_t)-1)
 #define DIE		            ((int32_t)-2)
 
@@ -26,13 +27,13 @@ struct TASK {
 	uint8_t priority;
 	uint16_t id;
 	char* name;
-	int32_t (*func)(void* arg); 
+	int32_t (*func)(void);
 	uint32_t resume_at_tickcount;
 	struct TASK* next_task;
 };
 
 #define ALLOCATE_TASK(_name_, _priority_)	\
-    int32_t _name_##_task_func(void* arg); \
+    int32_t _name_##_task_func(); \
 	struct TASK _name_##_task = {	\
 		.priority = _priority_, \
 		.resume_at_tickcount = 0,	\

@@ -68,7 +68,7 @@ void main_menu_start()
 /*
  * Main menu task
  */
-int32_t main_menu_task_func(void* arg)
+int32_t main_menu_task_func()
 {
 	// Process key
 	if ((received_key == KEY_LEFT) || (received_key == KEY_RIGHT)) {

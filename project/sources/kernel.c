@@ -182,7 +182,7 @@ __attribute__((naked)) void kernel_main(void)
 	while (1) {
 		active_task = kernel_get_next_task_to_run();
 		if (active_task != NULL) {
-            task_ret_val = (active_task->func)(NULL);
+            task_ret_val = (active_task->func)();
             if (task_ret_val >= 0) {
                 active_task->resume_at_tickcount = systick_get_tick_count() + (int32_t)task_ret_val;
             } else if (task_ret_val == WAIT_FOR_RESUME) {

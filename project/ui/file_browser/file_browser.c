@@ -4,6 +4,7 @@
 #include "oled.h"
 #include "file_browser.h"
 #include "main_menu.h"
+#include "music_player.h"
 #include "ff.h"
 #include "string.h"
 
@@ -245,7 +246,7 @@ void file_browser_start()
 /*
  * Main task
  */
-int32_t file_browser_task_func(void* arg)
+int32_t file_browser_task_func()
 {
 	// Process key
 	if (received_key == KEY_DOWN) {
@@ -271,7 +272,9 @@ int32_t file_browser_task_func(void* arg)
 			file_browser_update_shown_files();
 		} else {
 			// play file
-			debug_msg("this file should be played\n");
+			buttons_remove_key_event_callback();
+			music_player_start();
+			return DIE;
 		}
 	} else if (received_key == KEY_CANCEL) {
 		// If we're already on the root folder, then return to the global interface, otherwise return
