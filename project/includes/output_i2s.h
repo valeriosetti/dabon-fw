@@ -3,8 +3,9 @@
 
 #include "stdint.h"
 
-int output_i2s_init(void);
-int output_i2s_ConfigurePLL(uint32_t samplig_freq);
+int32_t output_i2s_init(void);
+int32_t output_i2s_ConfigurePLL(uint32_t samplig_freq);
+int32_t output_i2s_enqueue_samples(int16_t* data, uint16_t samples_count);
 
 void DMA1_Stream7_IRQHandler(void);
 

@@ -30,8 +30,11 @@ I2S_PLL_CONFIG 	i2s_pll_configurations[] = {
 #define PLL_CONFIGURATIONS_COUNT  		(sizeof(i2s_pll_configurations)/sizeof(I2S_PLL_CONFIG))
 
 // Output buffers
-#define DMA_BUFFERS_SIZE	48
-int16_t dma_buffers[2][2*DMA_BUFFERS_SIZE];
+#define DMA_BUFFERS_SIZE	3984//4000
+#define DMA_BUFFERS_COUNT   4
+int16_t dma_buffers[DMA_BUFFERS_COUNT][2*DMA_BUFFERS_SIZE];
+uint16_t current_playing_buffer = 0;
+uint16_t next_playing_buffer = 1;
 
 // Macros
 #define I2S3_enable()		do{ SET_BIT(SPI3->I2SCFGR, SPI_I2SCFGR_I2SE);	} while(0)
@@ -57,6 +60,8 @@ static void output_i2s_initialize_buffers()
 	for (index=0; index<array_length(sine_look_up_table); index++) {
 		dma_buffers[0][2*index] = dma_buffers[0][2*index+1] = (int16_t)(sine_look_up_table[index] - 0x8000);
 		dma_buffers[1][2*index] = dma_buffers[1][2*index+1] = (int16_t)(sine_look_up_table[index] - 0x8000);
+		dma_buffers[2][2*index] = dma_buffers[2][2*index+1] = (int16_t)(sine_look_up_table[index] - 0x8000);
+		dma_buffers[3][2*index] = dma_buffers[3][2*index+1] = (int16_t)(sine_look_up_table[index] - 0x8000);
 	}
 }
 
@@ -188,5 +193,22 @@ void DMA1_Stream7_IRQHandler(void)
 		debug_msg("Error in DMA transfer\n");
 	}
 	DMA1->HIFCR = (DMA_HIFCR_CTCIF7 | DMA_HIFCR_CHTIF7 | DMA_HIFCR_CTEIF7 | DMA_HIFCR_CDMEIF7 | DMA_HIFCR_CFEIF7);
+
+	// Clear the completed buffer
+	memset(dma_buffers[current_playing_buffer], current_playing_buffer, sizeof(dma_buffers[current_playing_buffer]));
+    
+    // Update the "memory address" source register which is not currently playing
+    current_playing_buffer = next_playing_buffer;
+    next_playing_buffer = current_playing_buffer + 1;
+    if (next_playing_buffer >= DMA_BUFFERS_COUNT) {
+        next_playing_buffer = 0;
+    }
+    
+    if (READ_BIT(DMA1_Stream7->CR, DMA_SxCR_CT)) {
+        DMA1_Stream7->M0AR = (uint32_t) dma_buffers[next_playing_buffer];
+    } else {
+        DMA1_Stream7->M1AR = (uint32_t) dma_buffers[next_playing_buffer];
+    }
+    debug_msg("%d\n", next_playing_buffer);
 }
 

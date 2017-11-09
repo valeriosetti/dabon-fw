@@ -712,7 +712,8 @@ int32_t sgtl5000_init()
 	if (ret_val != 0)
 		return ret_val;
 	// Configure the internal audio routing
-	ret_val = sgtl5000_set_audio_routing(AUDIO_ROUTING_LINE_IN_to_HP_OUT);
+	//ret_val = sgtl5000_set_audio_routing(AUDIO_ROUTING_LINE_IN_to_HP_OUT);
+	ret_val = sgtl5000_set_audio_routing(AUDIO_ROUTING_I2S_IN_to_HP_OUT);
 	if (ret_val != 0)
 		return ret_val;
 	// Configure the I2S data format
