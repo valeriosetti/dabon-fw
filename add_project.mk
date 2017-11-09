@@ -35,6 +35,7 @@ SRCS += $(PROJECT_PATH)/ui/music_player/music_player.c
 INCS += -I$(PROJECT_PATH)/ui
 INCS += -I$(PROJECT_PATH)/ui/main_menu
 INCS += -I$(PROJECT_PATH)/ui/file_browser
+INCS += -I$(PROJECT_PATH)/ui/music_player
 
 IMAGE_CONVERTER_SCRIPT = $(PROJECT_PATH)/ui/image_converter.py
 IMAGES +=
