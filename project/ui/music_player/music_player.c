@@ -81,7 +81,7 @@ void music_player_start()
 /*
  * Main task
  */
-int32_t music_player_task_func(void* arg)
+int32_t music_player_task_func()
 {
 	// Process key
 	if (received_key != KEY_NONE) {

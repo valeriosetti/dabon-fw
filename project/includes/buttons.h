@@ -3,18 +3,19 @@
 
 #include "stdint.h"
 
-#define KEY_PRESSED		0
-#define KEY_RELEASED	1
+#define KEY_RELEASED			0
+#define KEY_PRESSED_DEBOUNCING	1
+#define KEY_PRESSED				2
 
-#define KEY_NONE		0
-#define KEY_UP			1
-#define KEY_DOWN		2
-#define KEY_LEFT		3
-#define KEY_RIGHT		4
-#define KEY_OK			5
-#define KEY_CANCEL		6
-#define KEY_VOL_UP		7
-#define KEY_VOL_DOWN	8
+#define KEY_UP			0
+#define KEY_DOWN		1
+#define KEY_LEFT		2
+#define KEY_RIGHT		3
+#define KEY_OK			4
+#define KEY_CANCEL		5
+#define KEY_VOL_UP		6
+#define KEY_VOL_DOWN	7
+#define KEY_NONE		0xFF
 
 // Public functions
 void buttons_init(void);
