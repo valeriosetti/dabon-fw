@@ -18,7 +18,7 @@ FATFS file_system;
 DIR curr_dir;
 #define MAX_PATH_LENGTH		256
 char curr_path[MAX_PATH_LENGTH] = "";
-#define MAX_ITEMS_IN_FOLDER		512
+#define MAX_ITEMS_IN_FOLDER		1024
 #define MAX_NAME_LENGTH		24
 
 typedef struct{
@@ -26,7 +26,7 @@ typedef struct{
 	uint8_t is_dir; 	// '1' means directory, '0' means file
 } LIST_ITEM;
 
-static struct {
+__attribute__((section (".ccmram"))) static struct {
 	LIST_ITEM item[MAX_ITEMS_IN_FOLDER];
 	uint16_t items_count;
 	int16_t first_shown_item;
