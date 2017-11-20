@@ -40,10 +40,10 @@ __attribute__((naked)) void Reset_Handler(void)
 	while (data_begin < data_end) *data_begin++ = *idata_begin++;
 
 	/* Copy the data segment initializers from flash to CCRAM */
-	/*uint32_t* cc_idata_begin = &_siccmram;
+	uint32_t* cc_idata_begin = &_siccmram;
 	uint32_t* cc_data_begin = &_sccmram;
 	uint32_t* cc_data_end = &_eccmram;
-	while (cc_data_begin < cc_data_end) *cc_data_begin++ = *cc_idata_begin++;*/
+	while (cc_data_begin < cc_data_end) *cc_data_begin++ = *cc_idata_begin++;
 	
 	/* Zero fill the bss segment. */
 	uint32_t *bss_begin = &_sbss;
