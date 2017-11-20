@@ -22,6 +22,7 @@ SRCS += $(PROJECT_PATH)/sources/sgtl5000.c
 SRCS += $(PROJECT_PATH)/sources/shell.c
 SRCS += $(PROJECT_PATH)/sources/utils.c
 SRCS += $(PROJECT_PATH)/sources/buttons.c
+SRCS += $(PROJECT_PATH)/sources/file_manager.c
 				
 INCS += -I$(PROJECT_PATH)/includes
 
