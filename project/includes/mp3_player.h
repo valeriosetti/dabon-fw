@@ -4,6 +4,7 @@
 #include "stdint.h"
 
 int32_t mp3_player_play(char* path);
+int32_t mp3_player_resume(void);
 int32_t mp3_player_pause(void);
 int32_t mp3_player_stop(void);
 uint8_t mp3_player_get_status(void);
