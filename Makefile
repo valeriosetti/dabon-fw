@@ -35,6 +35,7 @@ LD=arm-none-eabi-ld
 
 # compiler options
 CFLAGS  = -g -O0 -T$(LINKER) -nostartfiles -Wl,-Map=$(OUT_PATH)/$(PROJ_NAME).map,--cref 
+CFLAGS += -Werror
 CFLAGS += -mlittle-endian -mthumb -mcpu=cortex-m4
 CFLAGS += -mfloat-abi=hard -mfpu=fpv4-sp-d16
 CFLAGS += -D$(DEVICE_TYPE)
