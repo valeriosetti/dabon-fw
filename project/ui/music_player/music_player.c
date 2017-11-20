@@ -7,6 +7,7 @@
 #include "ff.h"
 #include "string.h"
 #include "mp3_player.h"
+#include "file_manager.h"
 
 #define debug_msg(format, ...)		debug_printf("[music_player] " format, ##__VA_ARGS__)
 
@@ -68,8 +69,7 @@ int32_t music_player_task_func()
 				mp3_player_resume();
 			} else if (mp3_player_get_status() == MP3_PLAYER_IDLE) {
 				debug_msg("starting playback\n");
-				char* file_name = file_manager_get_item_name(current_file_index);
-				mp3_player_play(file_name);
+				mp3_player_play(file_manager_get_item_name(current_file_index));
 			}
 		} else if (received_key == KEY_CANCEL) {
 			// if there's something playing then pause it, otherwise
