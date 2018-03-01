@@ -9,7 +9,6 @@
 FATFS file_system;
 DIR curr_dir;
 
-#define MAX_PATH_LENGTH		256
 char curr_path[MAX_PATH_LENGTH] = "";
 
 #define MAX_ITEM_NAME_LENGTH		(8+1+3+1)	// 8 for filename; 1 for the dot; 3 for extension; 1 for string termination
@@ -65,14 +64,6 @@ static int32_t file_manager_list_files()
 			items_count++;
 		}
 	} while (file_info.fname[0] != '\0');
-
-	if (items_count > 0) {
-		//menu_items.first_shown_item = 0;
-		//menu_items.selected_item = 0;
-	} else {
-		//menu_items.first_shown_item = -1;
-		//menu_items.selected_item = -1;
-	}
 
 	return 0;
 }

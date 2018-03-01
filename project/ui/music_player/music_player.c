@@ -16,6 +16,8 @@ ALLOCATE_TASK(music_player, 200);
 uint8_t received_key;
 uint16_t current_file_index;
 
+char local_path[MAX_PATH_LENGTH] = "";
+
 /*
  * Initialization function for the module
  */
@@ -56,6 +58,24 @@ void music_player_start(uint16_t file_index)
 }
 
 /*
+ * Concatenate the current folder's path to the file that should be played
+ */
+static int32_t music_player_prepare_path_for_playback()
+{
+	memset(local_path, '\0', sizeof(local_path));
+	strncpy(local_path, file_manager_get_curr_path_pointer(), MAX_PATH_LENGTH);
+	uint16_t local_path_len = strlen(local_path);
+	if (local_path[local_path_len] != '/') {
+		local_path[local_path_len] = '/';
+		local_path_len ++;
+	}
+	uint16_t remaining_space = MAX_PATH_LENGTH - local_path_len;
+	strncpy(&local_path[local_path_len], file_manager_get_item_name(current_file_index), remaining_space);
+
+	return 0;
+}
+
+/*
  * Main task
  */
 int32_t music_player_task_func()
@@ -68,8 +88,12 @@ int32_t music_player_task_func()
 				debug_msg("resuming playback\n");
 				mp3_player_resume();
 			} else if (mp3_player_get_status() == MP3_PLAYER_IDLE) {
-				debug_msg("starting playback\n");
-				mp3_player_play(file_manager_get_item_name(current_file_index));
+				if (music_player_prepare_path_for_playback() >= 0) {
+					debug_msg("starting playback\n");
+					mp3_player_play(local_path);
+				} else {
+					debug_msg("error creating playback path\n");
+				}
 			}
 		} else if (received_key == KEY_CANCEL) {
 			// if there's something playing then pause it, otherwise

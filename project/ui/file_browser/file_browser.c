@@ -137,6 +137,13 @@ int32_t file_browser_task_func()
 		if (file_manager_is_item_a_dir(selected_item)) {
 			// enter into the directory
 			file_manager_enter_into_folder(file_manager_get_item_name(selected_item));
+			if (file_manager_get_item_count() > 0) {
+				first_shown_item = 0;
+				selected_item = 0;
+			} else {
+				first_shown_item = -1;
+				selected_item = -1;
+			}
 			file_browser_update_shown_files();
 		} else {
 			// play file
@@ -152,6 +159,13 @@ int32_t file_browser_task_func()
 			return DIE;
 		} else {
 			file_manager_exit_from_folder();
+			if (file_manager_get_item_count() > 0) {
+				first_shown_item = 0;
+				selected_item = 0;
+			} else {
+				first_shown_item = -1;
+				selected_item = -1;
+			}
 			file_browser_update_shown_files();
 		}
 	}

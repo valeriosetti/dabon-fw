@@ -3,6 +3,8 @@
 
 #include "stdint.h"
 
+#define MAX_PATH_LENGTH		256
+
 int32_t file_manager_mount_disk(void);
 
 int32_t file_manager_change_directory(char* path);
