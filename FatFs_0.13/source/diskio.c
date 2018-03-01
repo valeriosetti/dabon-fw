@@ -60,7 +60,6 @@ DRESULT disk_read (
 {
 	(void)pdrv;
 	
-	//if (SD_ReadBlocks_DMA(buff, sector, count) != 0)
 	if (SD_ReadBlocks_DMA(buff, sector, count) != 0)
 		return RES_ERROR;
 

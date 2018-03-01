@@ -86,6 +86,7 @@ uint32_t SD_ReadBlocks_DMA(uint8_t *pData, uint32_t BlockAdd, uint32_t NumberOfB
 		debug_msg("Error: SD_ERROR_ADDR_OUT_OF_RANGE in %s\n", __func__); 
 		return SD_ERROR_ADDR_OUT_OF_RANGE;
 	}
+    
 	/* Initialize data control register */
 	SDIO->DCTRL = 0U;
 
@@ -244,6 +245,12 @@ __attribute__((interrupt)) void SDIO_IRQHandler()
 	if(SD_GET_FLAG(SDIO_IT_DATAEND) != 0) {
 		if((sd_handle.Context & SD_CONTEXT_DMA) != 0)
 		{
+            if (sd_handle.Context & SD_CONTEXT_READ_MULTIPLE_BLOCK) {
+                uint32_t errorstate = SDMMC_CmdStopTransfer(SDIO);
+                if (errorstate != SDMMC_ERROR_NONE) {
+                    debug_msg("Error: 0x%x in %s\n", errorstate, __func__);
+                }
+            }
 			SD_DMA_DISABLE();
 			SD_handle_and_clear_DMA_flags();
 			sd_handle.Context = SD_CONTEXT_NONE;
