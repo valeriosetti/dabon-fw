@@ -21,9 +21,13 @@ struct {
 	uint16_t write_ptr;		
 	uint16_t read_ptr;		
 } local_buffer;
+#define mp3_player_get_internal_buffer_data_count()			(local_buffer.write_ptr - local_buffer.read_ptr)
+
+#define OUTPUT_AUDIO_SAMPLES_MAX_SIZE 		2048
+uint16_t output_audio_samples[OUTPUT_AUDIO_SAMPLES_MAX_SIZE];
 
 //>>> DEBUG
-int16_t sine_look_up_table[] = {
+/*int16_t sine_look_up_table[] = {
 		0x8000,0x90b5,0xa120,0xb0fb,0xbfff,0xcdeb,0xda82,0xe58c,
 		0xeed9,0xf641,0xfba2,0xfee7,0xffff,0xfee7,0xfba2,0xf641,
 		0xeed9,0xe58c,0xda82,0xcdeb,0xbfff,0xb0fb,0xa120,0x90b5,
@@ -38,7 +42,7 @@ static void initialize_buffers()
 	for (index=0; index<array_size(sine_look_up_table); index++) {
 		tone_buffer[2*index] = tone_buffer[2*index+1] = (int16_t)(sine_look_up_table[index] - 0x8000);
 	}
-}
+}*/
 //<<< DEBUG
 
 /*******************************************************************/
@@ -52,7 +56,7 @@ static int32_t mp3_player_refill_buffer()
 	// If the buffer has already been used, the "read_ptr" will not be set at 
 	// the beginning of the array. Therefore the data must be lef-shifted before
 	// parsing more data from the file.
-	if ((local_buffer.read_ptr != 0) && (local_buffer.write_ptr > local_buffer.read_ptr)) {
+	if (local_buffer.read_ptr != 0) {
 		uint16_t bytes_to_shift = local_buffer.write_ptr - local_buffer.read_ptr;
 		memcpy(&local_buffer.data[0], &local_buffer.data[local_buffer.read_ptr], bytes_to_shift);
 		local_buffer.read_ptr = 0;
@@ -62,6 +66,12 @@ static int32_t mp3_player_refill_buffer()
 	// Now fill the remaining part of the local buffer
 	uint32_t read_bytes = 0;
 	uint32_t bytes_to_read = FILE_BUFFER_SIZE - local_buffer.write_ptr;
+	
+	// If there's nothing to read then return immediately
+	if (bytes_to_read == 0) {
+		return 0;
+	}
+	
 	if ( !f_eof(&fp) ) {
 		if (f_read(&fp, &local_buffer.data[local_buffer.write_ptr], bytes_to_read, (UINT*)&read_bytes) != 0) {
 			debug_msg("error reading the file\n");
@@ -72,6 +82,7 @@ static int32_t mp3_player_refill_buffer()
 			return -2;
 		}
 	}
+    local_buffer.write_ptr += read_bytes;
 	return 0;	
 }
 
@@ -109,16 +120,43 @@ static int32_t mp3_player_reset_internal_buffer()
 /*******************************************************************/
 int32_t mp3_player_task_func()
 {
-	// If there's enough space on the output buffer then copy some data
-	if (output_i2s_get_buffer_free_space() > array_size(tone_buffer)) {
-		output_i2s_enqueue_samples(tone_buffer, array_size(tone_buffer));
-	} else {
-		debug_msg("wait\n");
-		return WAIT_FOR_RESUME;
+	MP3FrameInfo frame_info;
+	uint8_t* data_buff_ptr;
+	
+	// decode the current frame
+	data_buff_ptr = &(local_buffer.data[local_buffer.read_ptr]);
+	int available_samples = mp3_player_get_internal_buffer_data_count();
+	int32_t ret_val = MP3Decode(hMP3Decoder, &data_buff_ptr, &available_samples, output_audio_samples, 0);
+	if (ret_val < 0) {
+		mp3_player_stop();
+		debug_msg("error: decoding frame\n");
+		return DIE;
 	}
-	// If there's still space, then reschedule immediately, otherwise wait
-	// for the callback
-	if (output_i2s_get_buffer_free_space() > array_size(tone_buffer)) {
+	local_buffer.read_ptr += mp3_player_get_internal_buffer_data_count() - available_samples;
+	// enqueue decoded samples
+	MP3GetLastFrameInfo(hMP3Decoder, &frame_info);
+	output_i2s_enqueue_samples(output_audio_samples, frame_info.outputSamps);
+	
+	// get infos for the next frame
+	data_buff_ptr = &(local_buffer.data[local_buffer.read_ptr]);
+	int32_t sync_word_offset = MP3FindSyncWord(data_buff_ptr, mp3_player_get_internal_buffer_data_count());
+	if (sync_word_offset < 0) {
+		mp3_player_stop();
+		debug_msg("error: unable to find new sync word\n");
+		return DIE;
+	}
+	data_buff_ptr += sync_word_offset;
+	MP3GetNextFrameInfo(hMP3Decoder, &frame_info, data_buff_ptr);
+	
+	if (mp3_player_refill_buffer() < 0) {
+		mp3_player_stop();
+		debug_msg("error: unable to refill the buffer\n");
+		return DIE;
+	}
+	
+	// if the output audio buffer is still partially free then reschedule immediately,
+	// otherwise wait for the callback
+	if (output_i2s_get_buffer_free_space() > frame_info.outputSamps) {
 		return IMMEDIATELY;
 	} else {
 		return WAIT_FOR_RESUME;
@@ -142,35 +180,35 @@ void mp3_player_request_audio_samples()
 int32_t mp3_player_play(char* path)
 {
 	if (hMP3Decoder == NULL)
-		hMP3Decoder = MP3InitDecoder;
+		hMP3Decoder = MP3InitDecoder();
 	
 	// try to open the file
 	if (f_open(&fp, path, FA_READ) != FR_OK) {
 		debug_msg("error opening the file\n");
 		return -1;
 	}
-	// fill the internal buffer
-	mp3_player_reset_internal_buffer();
-	if (mp3_player_refill_buffer() != 0)
-		return -2;
-	// find synchronization word
-	if (MP3FindSyncWord(local_buffer.data, local_buffer.read_ptr) != ERR_MP3_NONE) {
-		debug_msg("cannot find sync word\n");
-		return -3;
-	}
-	// refill the buffer with the first frame
-	if (mp3_player_refill_buffer() != 0)
-		return -4;
-	// decode the frame
-	uint8_t* buff_ptr = local_buffer.data;
-	uint32_t bytesLeft;
-	uint16_t audio_samples[1024];
-	if (MP3Decode(&hMP3Decoder, &buff_ptr, (int*)&bytesLeft, audio_samples, local_buffer.write_ptr) != ERR_MP3_NONE) {
-		debug_msg("error decoding frame\n");
-		return -5;
-	}
 	
-	initialize_buffers();
+	mp3_player_reset_internal_buffer();
+	
+	// fill the internal file buffer and ensure that the local buffer 
+	// starts with a correct frame header
+	int32_t sync_word_offset;
+	do {
+		if (mp3_player_refill_buffer() < 0) {
+			return -2;
+		}
+		sync_word_offset = MP3FindSyncWord(local_buffer.data, local_buffer.write_ptr);
+		// sync word not found! Clear the current buffer and repeat the procedure
+		if (sync_word_offset < 0) {
+			mp3_player_reset_internal_buffer();
+		}
+	} while (sync_word_offset < 0);
+	
+	// refill the buffer
+	local_buffer.read_ptr += sync_word_offset;
+	mp3_player_refill_buffer();
+	
+	// start the playback by activating the callback
 	internal_status = MP3_PLAYER_PLAYING;
 	output_i2s_register_callback(mp3_player_request_audio_samples);
 
