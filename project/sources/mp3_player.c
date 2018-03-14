@@ -23,7 +23,7 @@ struct {
 } local_buffer;
 #define mp3_player_get_internal_buffer_data_count()			(local_buffer.write_ptr - local_buffer.read_ptr)
 
-#define OUTPUT_AUDIO_SAMPLES_MAX_SIZE 		2048
+#define OUTPUT_AUDIO_SAMPLES_MAX_SIZE 		8192
 uint16_t output_audio_samples[OUTPUT_AUDIO_SAMPLES_MAX_SIZE];
 
 //>>> DEBUG
@@ -129,7 +129,7 @@ int32_t mp3_player_task_func()
 	int32_t ret_val = MP3Decode(hMP3Decoder, &data_buff_ptr, &available_samples, output_audio_samples, 0);
 	if (ret_val < 0) {
 		mp3_player_stop();
-		debug_msg("error: decoding frame\n");
+		debug_msg("error: decoding frame (%d)\n", ret_val);
 		return DIE;
 	}
 	local_buffer.read_ptr += mp3_player_get_internal_buffer_data_count() - available_samples;
@@ -145,6 +145,7 @@ int32_t mp3_player_task_func()
 		debug_msg("error: unable to find new sync word\n");
 		return DIE;
 	}
+	local_buffer.read_ptr += sync_word_offset;
 	data_buff_ptr += sync_word_offset;
 	MP3GetNextFrameInfo(hMP3Decoder, &frame_info, data_buff_ptr);
 	
