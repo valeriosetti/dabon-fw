@@ -34,7 +34,7 @@ OBJCOPY=arm-none-eabi-objcopy
 LD=arm-none-eabi-ld
 
 # compiler options
-CFLAGS  = -g -O0 -T$(LINKER) -nostartfiles -Wl,-Map=$(OUT_PATH)/$(PROJ_NAME).map,--cref 
+CFLAGS  = -g -O0 -T$(LINKER) -nostartfiles -Wl,-Map=$(OUT_PATH)/$(PROJ_NAME).map,--cref,--print-memory-usage 
 CFLAGS += -Werror
 CFLAGS += -mlittle-endian -mthumb -mcpu=cortex-m4
 CFLAGS += -mfloat-abi=hard -mfpu=fpv4-sp-d16

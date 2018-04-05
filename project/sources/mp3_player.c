@@ -15,11 +15,12 @@ HMP3Decoder hMP3Decoder = NULL;
 uint8_t internal_status = MP3_PLAYER_IDLE;
 FIL fp;
 
-#define FILE_BUFFER_SIZE		8192
+#define FILE_BUFFER_SIZE		0x2000
 struct {
 	uint8_t data[FILE_BUFFER_SIZE];
 	uint16_t write_ptr;		
-	uint16_t read_ptr;		
+	uint16_t read_ptr;
+	uint32_t total_read_bytes;	
 } local_buffer;
 #define mp3_player_get_internal_buffer_data_count()			(local_buffer.write_ptr - local_buffer.read_ptr)
 
@@ -83,6 +84,8 @@ static int32_t mp3_player_refill_buffer()
 		}
 	}
     local_buffer.write_ptr += read_bytes;
+    local_buffer.total_read_bytes += read_bytes;
+    
 	return 0;	
 }
 
@@ -112,6 +115,7 @@ static int32_t mp3_player_reset_internal_buffer()
 	memset(local_buffer.data, 0, sizeof(local_buffer.data));
 	local_buffer.read_ptr = 0;
 	local_buffer.write_ptr = 0;
+	local_buffer.total_read_bytes = 0;
 	return 0;
 }
 
@@ -128,14 +132,19 @@ int32_t mp3_player_task_func()
 	int available_samples = mp3_player_get_internal_buffer_data_count();
 	int32_t ret_val = MP3Decode(hMP3Decoder, &data_buff_ptr, &available_samples, output_audio_samples, 0);
 	if (ret_val < 0) {
-		mp3_player_stop();
-		debug_msg("error: decoding frame (%d)\n", ret_val);
-		return DIE;
-	}
-	local_buffer.read_ptr += mp3_player_get_internal_buffer_data_count() - available_samples;
+		//mp3_player_stop();
+		debug_msg("error: decoding frame (%d) - read_bytes=%d\n", ret_val, local_buffer.total_read_bytes);
+		//return DIE;
+	} 
+	
 	// enqueue decoded samples
-	MP3GetLastFrameInfo(hMP3Decoder, &frame_info);
-	output_i2s_enqueue_samples(output_audio_samples, frame_info.outputSamps);
+	if (ret_val >= 0) {
+		local_buffer.read_ptr += mp3_player_get_internal_buffer_data_count() - available_samples;
+		MP3GetLastFrameInfo(hMP3Decoder, &frame_info);
+		output_i2s_enqueue_samples(output_audio_samples, frame_info.outputSamps);
+	} else {
+		local_buffer.read_ptr += 10;
+	}
 	
 	// get infos for the next frame
 	data_buff_ptr = &(local_buffer.data[local_buffer.read_ptr]);
@@ -149,10 +158,12 @@ int32_t mp3_player_task_func()
 	data_buff_ptr += sync_word_offset;
 	MP3GetNextFrameInfo(hMP3Decoder, &frame_info, data_buff_ptr);
 	
-	if (mp3_player_refill_buffer() < 0) {
-		mp3_player_stop();
-		debug_msg("error: unable to refill the buffer\n");
-		return DIE;
+	if (local_buffer.read_ptr > FILE_BUFFER_SIZE/2) {
+		if (mp3_player_refill_buffer() < 0) {
+			mp3_player_stop();
+			debug_msg("error: unable to refill the buffer\n");
+			return DIE;
+		}
 	}
 	
 	// if the output audio buffer is still partially free then reschedule immediately,
