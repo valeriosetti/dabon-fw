@@ -15,7 +15,7 @@ HMP3Decoder hMP3Decoder = NULL;
 uint8_t internal_status = MP3_PLAYER_IDLE;
 FIL fp;
 
-#define FILE_BUFFER_SIZE		0x2000
+#define FILE_BUFFER_SIZE		4096
 struct {
 	uint8_t data[FILE_BUFFER_SIZE];
 	uint16_t write_ptr;		
@@ -24,7 +24,7 @@ struct {
 } local_buffer;
 #define mp3_player_get_internal_buffer_data_count()			(local_buffer.write_ptr - local_buffer.read_ptr)
 
-#define OUTPUT_AUDIO_SAMPLES_MAX_SIZE 		8192
+#define OUTPUT_AUDIO_SAMPLES_MAX_SIZE 		2048
 uint16_t output_audio_samples[OUTPUT_AUDIO_SAMPLES_MAX_SIZE];
 
 //>>> DEBUG

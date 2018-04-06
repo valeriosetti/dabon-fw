@@ -32,11 +32,11 @@ I2S_PLL_CONFIG 	i2s_pll_configurations[] = {
 #define PLL_CONFIGURATIONS_COUNT  		(sizeof(i2s_pll_configurations)/sizeof(I2S_PLL_CONFIG))
 
 // DMA buffers
-#define DMA_BUFFERS_SIZE	    (4096*2)
-int16_t dma_buffers[2][DMA_BUFFERS_SIZE];
+#define DMA_BUFFERS_SIZE	    (2048)
+int16_t dma_buffers[2][2*DMA_BUFFERS_SIZE];
 
 // Output (circular) buffer which holds samples before being copied to the DMA ones
-#define OUTPUT_BUFFER_SIZE      (4096*2)
+#define OUTPUT_BUFFER_SIZE      (2048)
 struct {
     int16_t samples[2*OUTPUT_BUFFER_SIZE];
     uint16_t start_index;
