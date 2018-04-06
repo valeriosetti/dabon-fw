@@ -46,9 +46,9 @@ CFLAGS += -D$(TUNER_CONFIG)
 # Removed options = -Wall  -mthumb-interwork --specs=nosys.specs 
 
 ###############################################################################
-.PHONY: check_flags clean_images
+.PHONY: check_flags clean_images check_output_folders
 
-all : check_flags $(CONV_IMGS) $(OUT_PATH)/$(PROJ_NAME).elf
+all : check_flags check_output_folders $(CONV_IMGS) $(OUT_PATH)/$(PROJ_NAME).elf
 	@echo "Creating HEX and BIN files"
 	@$(OBJCOPY) -O ihex $(OUT_PATH)/$(PROJ_NAME).elf $(OUT_PATH)/$(PROJ_NAME).hex
 	@$(OBJCOPY) -O binary $(OUT_PATH)/$(PROJ_NAME).elf $(OUT_PATH)/$(PROJ_NAME).bin
@@ -63,6 +63,10 @@ endif
 endif
 endif
 	@echo "Tuner version --> $(TUNER_CONFIG)"
+	
+check_output_folders:
+	if [ ! -d "./build" ]; then mkdir "build"; fi
+	if [ ! -d "./build/objs" ]; then mkdir "build/objs"; fi
 	
 $(CONV_IMGS) : %.h : %.bmp
 	@python3 $(IMAGE_CONVERTER_SCRIPT)  $< $@
