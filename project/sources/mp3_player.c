@@ -15,7 +15,7 @@ HMP3Decoder hMP3Decoder = NULL;
 uint8_t internal_status = MP3_PLAYER_IDLE;
 FIL fp;
 
-#define FILE_BUFFER_SIZE		4096
+#define FILE_BUFFER_SIZE		8192
 struct {
 	uint8_t data[FILE_BUFFER_SIZE];
 	uint16_t write_ptr;		
@@ -24,7 +24,7 @@ struct {
 } local_buffer;
 #define mp3_player_get_internal_buffer_data_count()			(local_buffer.write_ptr - local_buffer.read_ptr)
 
-#define OUTPUT_AUDIO_SAMPLES_MAX_SIZE 		2048
+#define OUTPUT_AUDIO_SAMPLES_MAX_SIZE 		4096
 uint16_t output_audio_samples[OUTPUT_AUDIO_SAMPLES_MAX_SIZE];
 
 //>>> DEBUG
@@ -132,9 +132,9 @@ int32_t mp3_player_task_func()
 	int available_samples = mp3_player_get_internal_buffer_data_count();
 	int32_t ret_val = MP3Decode(hMP3Decoder, &data_buff_ptr, &available_samples, output_audio_samples, 0);
 	if (ret_val < 0) {
-		//mp3_player_stop();
+		mp3_player_stop();
 		debug_msg("error: decoding frame (%d) - read_bytes=%d\n", ret_val, local_buffer.total_read_bytes);
-		//return DIE;
+		return DIE;
 	} 
 	
 	// enqueue decoded samples
