@@ -7,7 +7,8 @@ include ./add_project.mk
 include ./add_ST.mk
 include ./add_external_firmwares.mk
 include ./add_FatFs.mk
-include ./add_helix.mk
+#include ./add_helix.mk
+include ./add_libmad.mk
 
 # Binaries will be generated with this name (.elf, .bin, .hex, etc)
 PROJ_NAME = dabon
@@ -34,15 +35,21 @@ OBJCOPY=arm-none-eabi-objcopy
 LD=arm-none-eabi-ld
 
 # compiler options
-CFLAGS  = -g -O0 -T$(LINKER) -nostartfiles -Wl,-Map=$(OUT_PATH)/$(PROJ_NAME).map,--cref,--print-memory-usage 
-CFLAGS += -Werror
-CFLAGS += -mlittle-endian -mthumb -mcpu=cortex-m4
-CFLAGS += -mfloat-abi=hard -mfpu=fpv4-sp-d16
-CFLAGS += -D$(DEVICE_TYPE)
-CFLAGS += -DUSE_HAL_DRIVER
-CFLAGS += $(INCS)
-CFLAGS += -MD -MP -MF .dep/$(@F).d
-CFLAGS += -D$(TUNER_CONFIG)
+C_FLAGS  = -g  
+C_FLAGS  = -O0
+C_FLAGS += -Werror
+C_FLAGS += -mlittle-endian
+C_FLAGS += -mthumb
+C_FLAGS += -mcpu=cortex-m4
+C_FLAGS += -mfloat-abi=hard
+C_FLAGS += -mfpu=fpv4-sp-d16
+C_FLAGS += -D$(DEVICE_TYPE)
+C_FLAGS += -DFPM_ARM
+C_FLAGS += -MD -MP -MF .dep/$(@F).d
+C_FLAGS += -D$(TUNER_CONFIG)
+
+LINKER_FLAGS = -Wl,-Map=$(OUT_PATH)/$(PROJ_NAME).map,--cref,--print-memory-usage
+LINKER_FLAGS += -nostartfiles 
 # Removed options = -Wall  -mthumb-interwork --specs=nosys.specs 
 
 ###############################################################################
@@ -74,7 +81,7 @@ $(CONV_IMGS) : %.h : %.bmp
 $(OUT_PATH)/$(PROJ_NAME).elf : $(C_OBJS) $(ASM_OBJS) $(FWS_OBJS)
 #	@echo $(CFLAGS)
 	@echo "Assembling objects"
-	@$(CC) $(CFLAGS) $^ -o $@ 
+	@$(CC) -T$(LINKER) $(LINKER_FLAGS) $^ -o $@ 
 	
 $(FWS_OBJS) : $(OBJ_PATH)/%.o : %.bin
 	@echo "Processing"   $<
@@ -83,11 +90,11 @@ $(FWS_OBJS) : $(OBJ_PATH)/%.o : %.bin
 $(C_OBJS) : $(OBJ_PATH)/%.o : %.c
 #	@echo $(INCS)
 	@echo "Compiling"   $<
-	@$(CC) -c $(CFLAGS) $< -o $@
+	@$(CC) -c $(C_FLAGS) $(INCS) $< -o $@
 	
 $(ASM_OBJS) : $(OBJ_PATH)/%.o : %.s
 	@echo "Compiling " $<
-	@$(CC) -c $(CFLAGS) $< -o $@
+	@$(CC) -c $(C_FLAGS) $(INCS) $< -o $@
 
 clean_images:
 	rm -f $(CONV_IMGS)

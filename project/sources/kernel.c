@@ -14,7 +14,7 @@
 #include "sd_card_detect.h"
 #include "ff.h"
 #include "systick.h"
-#include "mp3dec.h"
+//#include "mp3dec.h"
 #include "sgtl5000.h"
 #include "shell.h"
 #include "buttons.h"

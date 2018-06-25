@@ -1,5 +1,5 @@
 #include "mp3_player.h"
-#include "mp3dec.h"
+//#include "mp3dec.h"
 #include "ff.h"
 #include "debug_printf.h"
 #include "string.h"
@@ -11,7 +11,7 @@
 
 ALLOCATE_TASK(mp3_player, 5);
 
-HMP3Decoder hMP3Decoder = NULL;
+//HMP3Decoder hMP3Decoder = NULL;
 uint8_t internal_status = MP3_PLAYER_IDLE;
 FIL fp;
 
@@ -124,10 +124,10 @@ static int32_t mp3_player_reset_internal_buffer()
 /*******************************************************************/
 int32_t mp3_player_task_func()
 {
-	MP3FrameInfo frame_info;
-	uint8_t* data_buff_ptr;
+	//MP3FrameInfo frame_info;
+	/*uint8_t* data_buff_ptr;
 	
-	// decode the current frame
+	decode the current frame
 	data_buff_ptr = &(local_buffer.data[local_buffer.read_ptr]);
 	int available_samples = mp3_player_get_internal_buffer_data_count();
 	int32_t ret_val = MP3Decode(hMP3Decoder, &data_buff_ptr, &available_samples, output_audio_samples, 0);
@@ -141,7 +141,7 @@ int32_t mp3_player_task_func()
 	if (ret_val >= 0) {
 		local_buffer.read_ptr += mp3_player_get_internal_buffer_data_count() - available_samples;
 		MP3GetLastFrameInfo(hMP3Decoder, &frame_info);
-		output_i2s_enqueue_samples(output_audio_samples, frame_info.outputSamps);
+		//output_i2s_enqueue_samples(output_audio_samples, frame_info.outputSamps);
 	} else {
 		local_buffer.read_ptr += 10;
 	}
@@ -172,7 +172,7 @@ int32_t mp3_player_task_func()
 		return IMMEDIATELY;
 	} else {
 		return WAIT_FOR_RESUME;
-	}
+	}*/
 }
 
 /*
@@ -191,7 +191,7 @@ void mp3_player_request_audio_samples()
  */
 int32_t mp3_player_play(char* path)
 {
-	if (hMP3Decoder == NULL)
+	/*if (hMP3Decoder == NULL)
 		hMP3Decoder = MP3InitDecoder();
 	
 	// try to open the file
@@ -224,7 +224,7 @@ int32_t mp3_player_play(char* path)
 	internal_status = MP3_PLAYER_PLAYING;
 	output_i2s_register_callback(mp3_player_request_audio_samples);
 
-	return 0;
+	return 0;*/
 }
 
 /*
