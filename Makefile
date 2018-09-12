@@ -36,7 +36,7 @@ LD=arm-none-eabi-ld
 
 # compiler options
 C_FLAGS  = -g  
-C_FLAGS  = -O0
+C_FLAGS += -O0
 C_FLAGS += -Werror
 C_FLAGS += -mlittle-endian
 C_FLAGS += -mthumb
@@ -44,7 +44,7 @@ C_FLAGS += -mcpu=cortex-m4
 C_FLAGS += -mfloat-abi=hard
 C_FLAGS += -mfpu=fpv4-sp-d16
 C_FLAGS += -D$(DEVICE_TYPE)
-C_FLAGS += -DFPM_ARM
+C_FLAGS += -DFPM_DEFAULT -DNDEBUG -DHAVE_CONFIG_H
 C_FLAGS += -MD -MP -MF .dep/$(@F).d
 C_FLAGS += -D$(TUNER_CONFIG)
 

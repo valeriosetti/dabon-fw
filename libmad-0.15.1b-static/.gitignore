@@ -1,0 +1,11 @@
+*.lo
+*.o
+Makefile
+.deps
+.libs
+libmad.la
+config.*
+libtool
+stamp-h1
+*.list
+.*.sw[a-z]

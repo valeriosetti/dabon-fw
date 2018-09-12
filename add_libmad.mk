@@ -1,4 +1,4 @@
-LIBMAD_PATH=./libmad-0.15.1b
+LIBMAD_PATH=./libmad-0.15.1b-static
 
 SRCS += ${LIBMAD_PATH}/bit.c
 SRCS += ${LIBMAD_PATH}/decoder.c
