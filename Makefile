@@ -41,7 +41,7 @@ C_FLAGS += -Werror
 C_FLAGS += -mlittle-endian
 C_FLAGS += -mthumb
 C_FLAGS += -mcpu=cortex-m4
-C_FLAGS += -mfloat-abi=hard
+C_FLAGS += -mfloat-abi=softfp
 C_FLAGS += -mfpu=fpv4-sp-d16
 C_FLAGS += -D$(DEVICE_TYPE)
 C_FLAGS += -DFPM_DEFAULT -DNDEBUG -DHAVE_CONFIG_H
