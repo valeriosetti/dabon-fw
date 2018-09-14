@@ -29,10 +29,10 @@
 //#define HAVE_FORK 1
 
 /* Define to 1 if you have the <inttypes.h> header file. */
-#define HAVE_INTTYPES_H 1
+//#define HAVE_INTTYPES_H 1
 
 /* Define to 1 if you have the <limits.h> header file. */
-#define HAVE_LIMITS_H 1
+//#define HAVE_LIMITS_H 1
 
 /* Define if your MIPS CPU supports a 2-operand MADD16 instruction. */
 /* #undef HAVE_MADD16_ASM */
@@ -47,10 +47,10 @@
 //#define HAVE_PIPE 1
 
 /* Define to 1 if you have the <stdint.h> header file. */
-#define HAVE_STDINT_H 1
+//#define HAVE_STDINT_H 1
 
 /* Define to 1 if you have the <stdlib.h> header file. */
-#define HAVE_STDLIB_H 1
+//#define HAVE_STDLIB_H 1
 
 /* Define to 1 if you have the <strings.h> header file. */
 //#define HAVE_STRINGS_H 1
@@ -120,7 +120,7 @@
 #define SIZEOF_LONG_LONG 8
 
 /* Define to 1 if you have the ANSI C header files. */
-#define STDC_HEADERS 1
+//#define STDC_HEADERS 1
 
 /* Version number of package */
 #define VERSION "0.15.1b"
