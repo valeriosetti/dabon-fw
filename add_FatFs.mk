@@ -1,4 +1,4 @@
-FATFS_PATH = ./FatFs_0.13/source
+FATFS_PATH = FatFs_0.13/source
 
 INCS += -I$(FATFS_PATH)
 

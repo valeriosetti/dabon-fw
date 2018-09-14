@@ -17,9 +17,9 @@ OUT_PATH = ./build
 OBJ_PATH = ./build/objs
 
 # Convert the list of source files to a list of object files
-C_OBJS = $(addprefix $(OBJ_PATH)/, $(notdir $(SRCS:.c=.o)))
-ASM_OBJS = $(addprefix $(OBJ_PATH)/, $(notdir $(ASMS:.s=.o)))
-FWS_OBJS = $(addprefix $(OBJ_PATH)/, $(notdir $(FWS:.bin=.o)))
+C_OBJS = $(addprefix $(OBJ_PATH)/,$(SRCS:.c=.o))
+ASM_OBJS = $(addprefix $(OBJ_PATH)/, $(ASMS:.s=.o))
+FWS_OBJS = $(addprefix $(OBJ_PATH)/, $(FWS:.bin=.o))
 CONV_IMGS = $(IMAGES:.bmp=.h)
 
 # Add to VPATH the list of directories for source files
@@ -84,15 +84,18 @@ $(OUT_PATH)/$(PROJ_NAME).elf : $(C_OBJS) $(ASM_OBJS) $(FWS_OBJS)
 	@$(CC) -T$(LINKER) $(LINKER_FLAGS) $^ -o $@ 
 	
 $(FWS_OBJS) : $(OBJ_PATH)/%.o : %.bin
+	@if [ ! -d $(dir $@) ]; then mkdir -p $(dir $@); fi
 	@echo "Processing"   $<
 	@$(OBJCOPY)	-I binary -O elf32-littlearm -B arm --rename-section .data=.text $< $@
 
 $(C_OBJS) : $(OBJ_PATH)/%.o : %.c
 #	@echo $(INCS)
+	@if [ ! -d $(dir $@) ]; then mkdir -p $(dir $@); fi
 	@echo "Compiling"   $<
 	@$(CC) -c $(C_FLAGS) $(INCS) $< -o $@
 	
 $(ASM_OBJS) : $(OBJ_PATH)/%.o : %.s
+	@if [ ! -d $(dir $@) ]; then mkdir -p $(dir $@); fi
 	@echo "Compiling " $<
 	@$(CC) -c $(C_FLAGS) $(INCS) $< -o $@
 
@@ -100,7 +103,7 @@ clean_images:
 	rm -f $(CONV_IMGS)
 
 clean: clean_images
-	rm -f $(OBJ_PATH)/*.o
+	rm -rf $(OBJ_PATH)/*
 	rm -f $(OUT_PATH)/$(PROJ_NAME).*
 	rm -f .dep/*
 
