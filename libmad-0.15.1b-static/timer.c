@@ -423,26 +423,26 @@ void mad_timer_string(mad_timer_t timer,
     minutes = seconds / 60;
     hours   = minutes / 60;
 
-    sprintf(dest, format,
+    /*sprintf(dest, format,
 	    hours,
 	    (unsigned int) (minutes % 60),
 	    (unsigned int) (seconds % 60),
-	    frac, sub);
+	    frac, sub);*/
     break;
 
   case MAD_UNITS_MINUTES:
     minutes = seconds / 60;
 
-    sprintf(dest, format,
+    /*sprintf(dest, format,
 	    minutes,
 	    (unsigned int) (seconds % 60),
-	    frac, sub);
+	    frac, sub);*/
     break;
 
   case MAD_UNITS_SECONDS:
-    sprintf(dest, format,
+    /*sprintf(dest, format,
 	    seconds,
-	    frac, sub);
+	    frac, sub);*/
     break;
 
   case MAD_UNITS_23_976_FPS:
@@ -479,7 +479,7 @@ void mad_timer_string(mad_timer_t timer,
   case MAD_UNITS_50_FPS:
   case MAD_UNITS_60_FPS:
   case MAD_UNITS_75_FPS:
-    sprintf(dest, format, mad_timer_count(timer, units), sub);
+    /*sprintf(dest, format, mad_timer_count(timer, units), sub);*/
     break;
   }
 }
