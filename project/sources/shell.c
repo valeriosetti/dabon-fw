@@ -8,6 +8,7 @@
 #include "buttons.h"
 #include "eeprom.h"
 #include "kernel.h"
+#include "uart.h"
 
 #define debug_msg(format, ...)		debug_printf("[shell] " format, ##__VA_ARGS__)
 

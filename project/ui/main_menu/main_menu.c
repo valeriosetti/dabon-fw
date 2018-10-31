@@ -7,6 +7,7 @@
 #include "debug_printf.h"
 #include "buttons.h"
 #include "oled.h"
+#include "file_browser.h"
 
 #define debug_msg(format, ...)		debug_printf("[main_menu] " format, ##__VA_ARGS__)
 

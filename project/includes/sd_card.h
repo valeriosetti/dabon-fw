@@ -395,7 +395,8 @@ SD_CardStateTypeDef SD_GetCardState();
 uint32_t       SD_GetCardCID(SD_CardCIDTypeDef *pCID);
 uint32_t       SD_GetCardCSD(SD_CardCSDTypeDef *pCSD);
 //~ int32_t       SD_GetCardStatus(SD_Cardint32_t *pStatus);
-//~ int32_t       SD_GetCardInfo(SD_CardInfoTypeDef *pCardInfo);
+int32_t       SD_GetCardInfo(SD_CardInfoTypeDef *pCardInfo);
+uint32_t SD_GetContext();
 
 /*
  * Perioheral Abort management

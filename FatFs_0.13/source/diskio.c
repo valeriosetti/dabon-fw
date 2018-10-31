@@ -9,6 +9,7 @@
 
 #include "diskio.h"		/* FatFs lower layer API */
 #include "sd_card.h"
+#include "systick.h"
 
 /*-----------------------------------------------------------------------*/
 /* Get Drive Status                                                      */

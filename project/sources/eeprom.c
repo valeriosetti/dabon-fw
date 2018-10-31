@@ -13,6 +13,7 @@
 #include "clock_configuration.h"
 #include "spi.h"
 #include "string.h"
+#include "stdlib.h"
 #include "Si468x.h"
 
 // Macros

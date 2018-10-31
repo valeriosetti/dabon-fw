@@ -5,6 +5,7 @@
 #include "clock_configuration.h"
 #include "debug_printf.h"
 #include "kernel.h"
+#include "systick.h"
 
 #define debug_msg(format, ...)		debug_printf("[buttons] " format, ##__VA_ARGS__)
 

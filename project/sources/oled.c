@@ -6,6 +6,7 @@
 #include "debug_printf.h"
 #include "fsmc.h"
 #include "dabon_logo.h"
+#include "timer.h"
 #include "font-5x7.h"
 
 #define debug_msg(format, ...)		debug_printf("[oled] " format, ##__VA_ARGS__)

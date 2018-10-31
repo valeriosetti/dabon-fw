@@ -3,6 +3,8 @@
 #include "debug_printf.h"
 #include "output_i2s.h"
 #include "utils.h"
+#include "systick.h"
+#include "stdlib.h"
 
 #define debug_msg(format, ...)		debug_printf("[sgtl5000] " format, ##__VA_ARGS__)
 

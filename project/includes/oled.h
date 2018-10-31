@@ -26,5 +26,6 @@ void oled_print_text_at_xy(char* text, uint8_t x, uint8_t y);
 void oled_print_char_at_xy(char ch, uint8_t x, uint8_t y);
 void oled_highlight_line(uint8_t y);
 void oled_clear_display();
+void oled_invert_line_color(uint8_t y);
 
 #endif // _OLED_H_

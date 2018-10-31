@@ -8,6 +8,8 @@
 #include "spi.h"
 #include "string.h"
 #include "eeprom.h"
+#include "stdlib.h"
+#include "systick.h"
 
 #define debug_msg(format, ...)		debug_printf("[si4684] " format, ##__VA_ARGS__)
 

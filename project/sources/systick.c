@@ -1,5 +1,6 @@
 #include "systick.h"
 #include "stm32f407xx.h"
+#include "debug_printf.h"
 #include "core_cm4.h"
 
 #define debug_msg(format, ...)		debug_printf("[systick] " format, ##__VA_ARGS__)
