@@ -28,13 +28,13 @@ VPATH = $(dir $(SRCS)) \
 		$(dir $(FWS))
 
 #######################################################################################
-TOOLCHAIN_PATH=/opt/gcc-arm-none-eabi-7-2018-q2-update/bin
-LIBC_PATH=/opt/gcc-arm-none-eabi-7-2018-q2-update/lib/gcc/arm-none-eabi/7.3.1/thumb/v7e-m/fpv4-sp/hard
-CC=$(TOOLCHAIN_PATH)/arm-none-eabi-gcc
-AS=$(TOOLCHAIN_PATH)/arm-none-eabi-as
-SIZE=$(TOOLCHAIN_PATH)/arm-none-eabi-size
-OBJCOPY=$(TOOLCHAIN_PATH)/arm-none-eabi-objcopy
-LD=$(TOOLCHAIN_PATH)/arm-none-eabi-ld
+TOOLCHAIN_PATH=/opt/gcc-arm-none-eabi-7-2018-q2-update
+LIBC_PATH=$(TOOLCHAIN_PATH)/arm-none-eabi/lib/thumb/v7e-m/fpv4-sp/hard
+CC=$(TOOLCHAIN_PATH)/bin/arm-none-eabi-gcc
+AS=$(TOOLCHAIN_PATH)/bin/arm-none-eabi-as
+SIZE=$(TOOLCHAIN_PATH)/bin/arm-none-eabi-size
+OBJCOPY=$(TOOLCHAIN_PATH)/bin/arm-none-eabi-objcopy
+LD=$(TOOLCHAIN_PATH)/bin/arm-none-eabi-ld
 
 # compiler options
 C_FLAGS  = -g  
@@ -43,13 +43,14 @@ C_FLAGS += -Werror
 C_FLAGS += -mlittle-endian
 C_FLAGS += -mthumb
 C_FLAGS += -mcpu=cortex-m4
+C_FLAGS += -march=armv7e-m
 C_FLAGS += -mfloat-abi=hard
 C_FLAGS += -mfpu=fpv4-sp-d16
 C_FLAGS += -D$(DEVICE_TYPE)
 C_FLAGS += -DFPM_DEFAULT -DNDEBUG -DHAVE_CONFIG_H
 C_FLAGS += -MD -MP -MF .dep/$(@F).d
 C_FLAGS += -D$(TUNER_CONFIG)
-#C_FLAGS += -mthumb-interwork
+C_FLAGS += -ffreestanding
 #C_FLAGS += -Wall
 
 LINKER_FLAGS = -Wl,-Map=$(OUT_PATH)/$(PROJ_NAME).map,--cref,--print-memory-usage
@@ -84,7 +85,7 @@ $(CONV_IMGS) : %.h : %.bmp
 $(OUT_PATH)/$(PROJ_NAME).elf : $(C_OBJS) $(ASM_OBJS) $(FWS_OBJS)
 #	@echo $(CFLAGS)
 	@echo "Assembling objects"
-	@$(CC) -T$(LINKER) -l$(LIBC_PATH)/libgcc.a $(LINKER_FLAGS) $^ -o $@ 
+	@$(CC) -T$(LINKER) -L $(LIBC_PATH) $(LINKER_FLAGS) $^ -o $@ 
 	
 $(FWS_OBJS) : $(OBJ_PATH)/%.o : %.bin
 	@if [ ! -d $(dir $@) ]; then mkdir -p $(dir $@); fi
