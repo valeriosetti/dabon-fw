@@ -55,6 +55,12 @@ static int32_t mp3_player_refill_buffer(uint8_t adjust_offsets)
 	uint32_t bytes_to_keep = 0;
 	uint32_t read_bytes;
 	
+	// return a failure if the buffer cannot be filled with new data
+	if (f_eof(&fp)) {
+		debug_msg("EOF reached - cannot add more data to the buffer\n");
+		return -1;
+	}
+	
 	if (adjust_offsets) {
 		bytes_to_drop = mad_stream.this_frame - mad_stream.buffer;
 		bytes_to_keep = mad_stream.bufend - mad_stream.this_frame;
@@ -64,7 +70,7 @@ static int32_t mp3_player_refill_buffer(uint8_t adjust_offsets)
 		f_read(&fp, file_buffer + bytes_to_keep, FILE_BUFFER_SIZE, (unsigned int*)&read_bytes);
 	}
 	
-	debug_msg("Read bytes = %u\n", read_bytes);
+	//debug_msg("Read bytes = %u (%u%%)\n", read_bytes, (f_tell(&fp)*100)/(f_size(&fp)));
 	
 	if (adjust_offsets) {
 		mad_stream.this_frame -= bytes_to_drop;
@@ -72,12 +78,7 @@ static int32_t mp3_player_refill_buffer(uint8_t adjust_offsets)
 		mad_stream.ptr.byte -= bytes_to_drop;
 	}
 	
-	if (read_bytes > 0) {
-		mad_stream_buffer(&mad_stream, file_buffer, FILE_BUFFER_SIZE);
-		return 0;
-	} else {
-		return -1;
-	}	
+	return 0;
 }
 
 /*******************************************************************/
@@ -94,7 +95,9 @@ int32_t mp3_player_task_func()
 			mp3_player_stop();
 			return DIE;
 		} else {
-			debug_msg("Minor error (%x): %s\n", mad_stream.error, mad_stream_errorstr(&mad_stream));
+			//debug_msg("Minor error (%x): %s\n", mad_stream.error, mad_stream_errorstr(&mad_stream));
+			// refill the file buffer
+			mp3_player_refill_buffer(TRUE);
 			return IMMEDIATELY;
 		}
 	}
@@ -105,11 +108,7 @@ int32_t mp3_player_task_func()
 	//output_i2s_enqueue_samples(output_audio_samples, frame_info.outputSamps);	
 	
 	// refill the file buffer
-	if (mp3_player_refill_buffer(TRUE) < 0) {
-		mp3_player_stop();
-		debug_msg("EOF reached\n");
-		return DIE;
-	}
+	mp3_player_refill_buffer(TRUE);
 	
 	// if the output audio buffer is still partially free then reschedule immediately,
 	// otherwise wait for the callback
@@ -151,6 +150,7 @@ int32_t mp3_player_play(char* path)
 		debug_msg("unable to fill the internal buffer\n");
 		return -1;
 	}
+	mad_stream_buffer(&mad_stream, file_buffer, FILE_BUFFER_SIZE);
 	mad_stream_sync(&mad_stream);
 	
 	// start the playback by activating the callback
