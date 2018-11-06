@@ -17,7 +17,7 @@ FIL fp;
 #define FILE_BUFFER_SIZE		4096
 char file_buffer[FILE_BUFFER_SIZE];
 
-#define OUTPUT_AUDIO_SAMPLES_MAX_SIZE 		4096
+#define OUTPUT_AUDIO_SAMPLES_MAX_SIZE 		(1152*2)
 uint16_t output_audio_samples[OUTPUT_AUDIO_SAMPLES_MAX_SIZE];
 
 struct mad_stream mad_stream;
@@ -81,6 +81,22 @@ static int32_t mp3_player_refill_buffer(uint8_t adjust_offsets)
 	return 0;
 }
 
+static int32_t mp3_player_enqueue_decoded_audio_samples()
+{
+	// for now only stereo files are supported
+	if (mad_synth.pcm.channels < 2)
+		return -1;
+		
+	// todo: downscale the decoded audio samples before streaming them!!!
+	register uint16_t curr_sample;
+	for (curr_sample = 0; curr_sample < mad_synth.pcm.length; curr_sample++) {
+		output_audio_samples[curr_sample * 2] = mad_synth.pcm.samples[0][curr_sample];
+		output_audio_samples[curr_sample * 2 + 1] = mad_synth.pcm.samples[1][curr_sample];
+	}
+	
+	output_i2s_enqueue_samples(output_audio_samples, mad_synth.pcm.length);	
+}
+
 /*******************************************************************/
 /*		TASK RELATED FUNCTIONS
 /*******************************************************************/
@@ -102,10 +118,9 @@ int32_t mp3_player_task_func()
 		}
 	}
 	
+	// enqueue decoded audio samples
 	mad_synth_frame(&mad_synth, &mad_frame);
-	
-	// enqueue decoded samples
-	//output_i2s_enqueue_samples(output_audio_samples, frame_info.outputSamps);	
+	mp3_player_enqueue_decoded_audio_samples();	
 	
 	// refill the file buffer
 	mp3_player_refill_buffer(TRUE);
