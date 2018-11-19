@@ -33,12 +33,12 @@ I2S_PLL_CONFIG 	i2s_pll_configurations[] = {
 
 // DMA buffers
 #define DMA_BUFFERS_SIZE	    (2048)
-int16_t dma_buffers[2][2*DMA_BUFFERS_SIZE];
+audio_sample_t dma_buffers[2][DMA_BUFFERS_SIZE];
 
 // Output (circular) buffer which holds samples before being copied to the DMA ones
-#define OUTPUT_BUFFER_SIZE      (2048)
+#define OUTPUT_BUFFER_SIZE      (4096)
 struct {
-    int16_t samples[2*OUTPUT_BUFFER_SIZE];
+    audio_sample_t samples[OUTPUT_BUFFER_SIZE];
     uint16_t start_index;
     uint16_t stop_index;
     int16_t count;
@@ -120,7 +120,7 @@ int32_t output_i2s_init()
 	SET_BIT(DMA1_Stream7->CR, DMA_SxCR_DBM);
 	MODIFY_REG(DMA1_Stream7->CR, DMA_SxCR_DIR_Msk, 1UL << DMA_SxCR_DIR_Pos);
 	// Set the DMA source and destination addresses
-	DMA1_Stream7->NDTR = DMA_BUFFERS_SIZE;
+	DMA1_Stream7->NDTR = DMA_BUFFERS_SIZE*2; // the *2 multiplication is because --> audio_sample_t = 2*int16_t
 	DMA1_Stream7->PAR = (uint32_t) &(SPI3->DR);
 	DMA1_Stream7->M0AR = (uint32_t) dma_buffers[0];
 	DMA1_Stream7->M1AR = (uint32_t) dma_buffers[1];
@@ -184,7 +184,7 @@ int32_t output_i2s_ConfigurePLL(uint32_t samplig_freq)
 /*
  * Enqueue samples into the local buffer (if there's enough space available)
  */
-int32_t output_i2s_enqueue_samples(int16_t* data, uint16_t samples_count)
+int32_t output_i2s_enqueue_samples(audio_sample_t* data, uint16_t samples_count)
 {
 	// check if there's enough space to store incoming samples
 	if (samples_count > (OUTPUT_BUFFER_SIZE-output_buffer.count))
@@ -192,15 +192,16 @@ int32_t output_i2s_enqueue_samples(int16_t* data, uint16_t samples_count)
 
 	uint16_t data_to_copy;
 	while (samples_count > 0) {
-		if (output_buffer.stop_index + samples_count < OUTPUT_BUFFER_SIZE) {
+		if (output_buffer.stop_index + samples_count <= OUTPUT_BUFFER_SIZE) {
 			data_to_copy = samples_count;
-			memcpy(&output_buffer.samples[output_buffer.stop_index], data, data_to_copy*sizeof(int16_t));
-			output_buffer.stop_index += data_to_copy;
+			memcpy(&output_buffer.samples[output_buffer.stop_index], data, data_to_copy*sizeof(audio_sample_t));			
 		} else {
-			data_to_copy = (OUTPUT_BUFFER_SIZE-1) - output_buffer.stop_index;
-			memcpy(&output_buffer.samples[output_buffer.stop_index], data, data_to_copy*sizeof(int16_t));
-			output_buffer.stop_index = 0;
+			data_to_copy = OUTPUT_BUFFER_SIZE - output_buffer.stop_index;
+			memcpy(&output_buffer.samples[output_buffer.stop_index], data, data_to_copy*sizeof(audio_sample_t));
 		}
+		output_buffer.stop_index += data_to_copy;
+		if (output_buffer.stop_index >= OUTPUT_BUFFER_SIZE)
+			output_buffer.stop_index = 0;
 		samples_count -= data_to_copy;
 		data += data_to_copy;
 		output_buffer.count += data_to_copy;
@@ -249,7 +250,7 @@ void DMA1_Stream7_IRQHandler(void)
 int32_t output_i2s_task_func(void* arg)
 {
     // Update the data on the buffer which is idle (if playing 1 then update 0 and viceversa)
-    int16_t* dma_ptr = (READ_BIT(DMA1_Stream7->CR, DMA_SxCR_CT)) ? dma_buffers[0] : dma_buffers[1];
+    audio_sample_t* dma_ptr = (READ_BIT(DMA1_Stream7->CR, DMA_SxCR_CT)) ? dma_buffers[0] : dma_buffers[1];
     uint16_t remaining_data = DMA_BUFFERS_SIZE;
     uint16_t data_to_copy;
     
@@ -260,20 +261,21 @@ int32_t output_i2s_task_func(void* arg)
         	// compute the amount of data that should be copied
         	data_to_copy = (output_buffer.count<DMA_BUFFERS_SIZE) ? output_buffer.count : DMA_BUFFERS_SIZE;
         	// check if the copy can be performed with a single operation or in multiple steps
-        	if (output_buffer.start_index + data_to_copy - 1 < OUTPUT_BUFFER_SIZE) {
+        	if (output_buffer.start_index + data_to_copy <= OUTPUT_BUFFER_SIZE) {
         		// do not limit data_to_copy in this case
-        		memcpy(dma_ptr, &output_buffer.samples[output_buffer.start_index], data_to_copy*sizeof(int16_t));
-        		output_buffer.start_index += data_to_copy;
+        		memcpy(dma_ptr, &output_buffer.samples[output_buffer.start_index], data_to_copy*sizeof(audio_sample_t));
         	} else {
         		data_to_copy = OUTPUT_BUFFER_SIZE - output_buffer.start_index;
-        		memcpy(dma_ptr, &output_buffer.samples[output_buffer.start_index], data_to_copy*sizeof(int16_t));
-        		output_buffer.start_index = 0;
+        		memcpy(dma_ptr, &output_buffer.samples[output_buffer.start_index], data_to_copy*sizeof(audio_sample_t));
         	}
+        	output_buffer.start_index += data_to_copy;
+        	if (output_buffer.start_index >= OUTPUT_BUFFER_SIZE)
+				output_buffer.start_index = 0;
         	dma_ptr += data_to_copy;
         	output_buffer.count -= data_to_copy;
         	remaining_data -= data_to_copy;
         } else {
-            memset(dma_ptr, 0, remaining_data*sizeof(int16_t));
+            memset(dma_ptr, 0, remaining_data*sizeof(audio_sample_t));
             remaining_data = 0;
         }
     }
