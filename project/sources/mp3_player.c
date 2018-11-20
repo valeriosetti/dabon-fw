@@ -15,14 +15,22 @@ uint8_t internal_status = MP3_PLAYER_IDLE;
 FIL fp;
 
 #define FILE_BUFFER_SIZE		4096
-char file_buffer[FILE_BUFFER_SIZE];
+uint8_t file_buffer[FILE_BUFFER_SIZE];
 
-#define OUTPUT_AUDIO_SAMPLES_MAX_SIZE 		(1152*2)
-uint16_t output_audio_samples[OUTPUT_AUDIO_SAMPLES_MAX_SIZE];
+#define OUTPUT_AUDIO_SAMPLES_MAX_SIZE 		(1152)
+audio_sample_t output_audio_samples[OUTPUT_AUDIO_SAMPLES_MAX_SIZE];
 
 struct mad_stream mad_stream;
 struct mad_frame mad_frame;
 struct mad_synth mad_synth;
+
+#define clip_audio_sample(sample) \
+	do { \
+		if (sample >= MAD_F_ONE) \
+			sample = MAD_F_ONE - 1; \
+		else if (sample < -MAD_F_ONE) \
+			sample = -MAD_F_ONE; \
+	} while (0) 
 
 //>>> DEBUG
 /*int16_t sine_look_up_table[] = {
@@ -33,12 +41,12 @@ struct mad_synth mad_synth;
 		0x1126,0x9be,0x45d,0x118,0x0,0x118,0x45d,0x9be,
 		0x1126,0x1a73,0x257d,0x3214,0x4000,0x4f04,0x5edf,0x6f4a
 };
-int16_t tone_buffer[2*array_size(sine_look_up_table)];
+audio_sample_t tone_buffer[array_size(sine_look_up_table)];
 static void initialize_buffers()
 {
 	uint16_t index;
 	for (index=0; index<array_size(sine_look_up_table); index++) {
-		tone_buffer[2*index] = tone_buffer[2*index+1] = (int16_t)(sine_look_up_table[index] - 0x8000);
+		tone_buffer[index].left_ch = tone_buffer[index].right_ch = (int16_t)(sine_look_up_table[index] - 0x8000);
 	}
 }*/
 //<<< DEBUG
@@ -87,11 +95,20 @@ static int32_t mp3_player_enqueue_decoded_audio_samples()
 	if (mad_synth.pcm.channels < 2)
 		return -1;
 		
+	mad_fixed_t* pcm0_ptr = mad_synth.pcm.samples[0];
+	mad_fixed_t* pcm1_ptr = mad_synth.pcm.samples[1];
+	audio_sample_t* output_buf_ptr = output_audio_samples;
+		
 	// todo: downscale the decoded audio samples before streaming them!!!
 	register uint16_t curr_sample;
-	for (curr_sample = 0; curr_sample < mad_synth.pcm.length; curr_sample++) {
-		output_audio_samples[curr_sample * 2] = mad_synth.pcm.samples[0][curr_sample];
-		output_audio_samples[curr_sample * 2 + 1] = mad_synth.pcm.samples[1][curr_sample];
+	for (curr_sample = 0; curr_sample < mad_synth.pcm.length; curr_sample++, output_buf_ptr++) {
+		clip_audio_sample(*pcm0_ptr);
+		output_buf_ptr->left_ch = (int16_t)((*pcm0_ptr) >> (MAD_F_FRACBITS + 1 - 16));
+		pcm0_ptr++;
+		
+		clip_audio_sample(*pcm1_ptr);
+		output_buf_ptr->right_ch = (int16_t)((*pcm1_ptr) >> (MAD_F_FRACBITS + 1 - 16));
+		pcm1_ptr++;
 	}
 	
 	output_i2s_enqueue_samples(output_audio_samples, mad_synth.pcm.length);	
@@ -132,6 +149,13 @@ int32_t mp3_player_task_func()
 	} else {
 		return WAIT_FOR_RESUME;
 	}
+	
+	/*if (output_i2s_get_buffer_free_space() > array_size(tone_buffer)) {
+		output_i2s_enqueue_samples(tone_buffer, array_size(tone_buffer));
+		return IMMEDIATELY;
+	} else {
+		return WAIT_FOR_RESUME;
+	}*/
 }
 
 /*
@@ -150,6 +174,8 @@ void mp3_player_request_audio_samples()
  */
 int32_t mp3_player_play(char* path)
 {
+	//initialize_buffers();
+	
 	// Initialize MAD library
     mad_stream_init(&mad_stream);
     mad_synth_init(&mad_synth);
