@@ -6,6 +6,7 @@
 #include "kernel.h"
 #include "output_i2s.h"
 #include "utils.h"
+#include "sgtl5000.h"
 
 #define debug_msg(format, ...)		debug_printf("[mp3_player] " format, ##__VA_ARGS__)
 
@@ -23,6 +24,8 @@ audio_sample_t output_audio_samples[OUTPUT_AUDIO_SAMPLES_MAX_SIZE];
 struct mad_stream mad_stream;
 struct mad_frame mad_frame;
 struct mad_synth mad_synth;
+
+uint8_t has_sample_rate_been_set;
 
 #define clip_audio_sample(sample) \
 	do { \
@@ -123,16 +126,31 @@ int32_t mp3_player_task_func()
 	
 	//decode the current frame
 	if (mad_frame_decode(&mad_frame, &mad_stream) == -1) {
-		if (!MAD_RECOVERABLE(mad_stream.error)) {
+		if (MAD_RECOVERABLE(mad_stream.error)) {
+			// refill the file buffer
+			if (mp3_player_refill_buffer(TRUE) < 0) {
+				debug_msg("Minor error (%x), but the buffer cannot be refilled\n", mad_stream.error);
+				mp3_player_stop();
+				return DIE;
+			}
+			return IMMEDIATELY;
+		} else if (mad_stream.error == MAD_ERROR_BUFLEN) {
+			if (mp3_player_refill_buffer(TRUE) < 0) {
+				debug_msg("Major error (%x): %s, but the buffer cannot be refilled\n", mad_stream.error, mad_stream_errorstr(&mad_stream));
+				mp3_player_stop();
+				return DIE;
+			}
+		} else {
 			debug_msg("Major error (%x): %s\n", mad_stream.error, mad_stream_errorstr(&mad_stream));
 			mp3_player_stop();
 			return DIE;
-		} else {
-			//debug_msg("Minor error (%x): %s\n", mad_stream.error, mad_stream_errorstr(&mad_stream));
-			// refill the file buffer
-			mp3_player_refill_buffer(TRUE);
-			return IMMEDIATELY;
 		}
+	}
+	
+	if (!has_sample_rate_been_set) {
+		output_i2s_ConfigurePLL(mad_frame.header.samplerate);
+		sgtl5000_config_clocks(mad_frame.header.samplerate);
+		has_sample_rate_been_set = TRUE;
 	}
 	
 	// enqueue decoded audio samples
@@ -144,18 +162,12 @@ int32_t mp3_player_task_func()
 	
 	// if the output audio buffer is still partially free then reschedule immediately,
 	// otherwise wait for the callback
+	// Note = 1152 is the maximum audio samples size for an MP3 frame
 	if (output_i2s_get_buffer_free_space() > 1152) {
 		return IMMEDIATELY;
 	} else {
 		return WAIT_FOR_RESUME;
 	}
-	
-	/*if (output_i2s_get_buffer_free_space() > array_size(tone_buffer)) {
-		output_i2s_enqueue_samples(tone_buffer, array_size(tone_buffer));
-		return IMMEDIATELY;
-	} else {
-		return WAIT_FOR_RESUME;
-	}*/
 }
 
 /*
@@ -174,12 +186,12 @@ void mp3_player_request_audio_samples()
  */
 int32_t mp3_player_play(char* path)
 {
-	//initialize_buffers();
-	
 	// Initialize MAD library
     mad_stream_init(&mad_stream);
     mad_synth_init(&mad_synth);
     mad_frame_init(&mad_frame);
+    
+    has_sample_rate_been_set = FALSE;
     
 	// try to open the file
 	if (f_open(&fp, path, FA_READ) != FR_OK) {
@@ -228,6 +240,13 @@ int32_t mp3_player_stop()
 {
 	output_i2s_register_callback(NULL);
 	internal_status = MP3_PLAYER_IDLE;
+	mad_stream_finish(&mad_stream);
+    mad_synth_finish(&mad_synth);
+    mad_frame_finish(&mad_frame);
+	f_close(&fp);
+	memset(file_buffer, 0, sizeof(file_buffer));
+	memset(output_audio_samples, 0, sizeof(output_audio_samples));
+	
 	return 0;
 }
 

@@ -149,6 +149,7 @@ int32_t output_i2s_ConfigurePLL(uint32_t samplig_freq)
 		debug_msg("Error: PLL configuration not found\n");
 		return -1;
 	}
+	debug_msg("Configuring for %d Hz\n", samplig_freq);
 
 	// Disable the I2S peripheral and also its clock
 	I2S3_disable();
@@ -251,15 +252,15 @@ int32_t output_i2s_task_func(void* arg)
 {
     // Update the data on the buffer which is idle (if playing 1 then update 0 and viceversa)
     audio_sample_t* dma_ptr = (READ_BIT(DMA1_Stream7->CR, DMA_SxCR_CT)) ? dma_buffers[0] : dma_buffers[1];
-    uint16_t remaining_data = DMA_BUFFERS_SIZE;
+    uint16_t remaining_dma_space = DMA_BUFFERS_SIZE;
     uint16_t data_to_copy;
     
-    while (remaining_data > 0) {
+    while (remaining_dma_space > 0) {
         // Check if there's something valid inside the output_buffer, otherwise fill the remaining
         // space with 0
         if (output_buffer.count > 0) {
         	// compute the amount of data that should be copied
-        	data_to_copy = (output_buffer.count<DMA_BUFFERS_SIZE) ? output_buffer.count : DMA_BUFFERS_SIZE;
+        	data_to_copy = (output_buffer.count<remaining_dma_space) ? output_buffer.count : remaining_dma_space;
         	// check if the copy can be performed with a single operation or in multiple steps
         	if (output_buffer.start_index + data_to_copy <= OUTPUT_BUFFER_SIZE) {
         		// do not limit data_to_copy in this case
@@ -273,10 +274,12 @@ int32_t output_i2s_task_func(void* arg)
 				output_buffer.start_index = 0;
         	dma_ptr += data_to_copy;
         	output_buffer.count -= data_to_copy;
-        	remaining_data -= data_to_copy;
+        	remaining_dma_space -= data_to_copy;
         } else {
-            memset(dma_ptr, 0, remaining_data*sizeof(audio_sample_t));
-            remaining_data = 0;
+			if (remaining_dma_space > DMA_BUFFERS_SIZE)
+				debug_msg("this is goind to fail\n");
+            memset(dma_ptr, 0, remaining_dma_space*sizeof(audio_sample_t));
+            remaining_dma_space = 0;
         }
     }
 

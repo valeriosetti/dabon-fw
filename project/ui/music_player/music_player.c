@@ -42,22 +42,6 @@ void music_player_key_event(uint8_t key, uint8_t event)
 }
 
 /*
- * Activate the module
- */
-void music_player_start(uint16_t file_index)
-{
-	buttons_register_key_event_callback(&music_player_key_event);
-	kernel_activate_task_immediately(&music_player_task);
-
-	current_file_index = file_index;
-
-	oled_clear_display();
-	oled_print_text_at_xy("Test tone", 0, 0);
-
-	received_key = KEY_NONE;
-}
-
-/*
  * Concatenate the current folder's path to the file that should be played
  */
 static int32_t music_player_prepare_path_for_playback()
@@ -76,6 +60,30 @@ static int32_t music_player_prepare_path_for_playback()
 }
 
 /*
+ * Activate the module
+ */
+void music_player_start(uint16_t file_index)
+{
+	buttons_register_key_event_callback(&music_player_key_event);
+	kernel_activate_task_immediately(&music_player_task);
+
+	current_file_index = file_index;
+
+	oled_clear_display();
+	
+	received_key = KEY_NONE;
+	
+	if (music_player_prepare_path_for_playback() >= 0) {
+		debug_msg("starting playback\n");
+		oled_print_text_at_xy(local_path, 0, 0);
+		mp3_player_play(local_path);
+	} else {
+		oled_print_text_at_xy("Error!", 0, 0);
+		debug_msg("error creating playback path\n");
+	}
+}
+
+/*
  * Main task
  */
 int32_t music_player_task_func()
@@ -87,25 +95,15 @@ int32_t music_player_task_func()
 			if (mp3_player_get_status() == MP3_PLAYER_PAUSED) {
 				debug_msg("resuming playback\n");
 				mp3_player_resume();
-			} else if (mp3_player_get_status() == MP3_PLAYER_IDLE) {
-				if (music_player_prepare_path_for_playback() >= 0) {
-					debug_msg("starting playback\n");
-					mp3_player_play(local_path);
-				} else {
-					debug_msg("error creating playback path\n");
-				}
+			} else if (mp3_player_get_status() == MP3_PLAYER_PLAYING) {
+				debug_msg("playback paused\n");
+				mp3_player_pause();
 			}
 		} else if (received_key == KEY_CANCEL) {
-			// if there's something playing then pause it, otherwise
-			// return to the file_browser menu
-			if (mp3_player_get_status() == MP3_PLAYER_PLAYING) {
-				mp3_player_pause();
-				debug_msg("playback paused\n");
-			} else {
-				buttons_remove_key_event_callback();
-				file_browser_start();
-				return DIE;
-			}
+			mp3_player_stop();			
+			buttons_remove_key_event_callback();
+			file_browser_resume();
+			return DIE;
 		}
 		received_key = KEY_NONE;
 	}

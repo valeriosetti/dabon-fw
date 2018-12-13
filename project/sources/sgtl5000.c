@@ -394,6 +394,8 @@
 #define SGTL5000_SYSCLK				0x00
 #define SGTL5000_LRCLK	0x01
 
+uint16_t current_sample_rate;
+
 /****************************************************************/
 /*      PRIVATE FUNCTIONS
 /****************************************************************/
@@ -582,6 +584,7 @@ Exit:
  */
 int32_t sgtl5000_config_clocks(uint32_t sample_rate)
 {	
+	debug_msg("Trying to set samplerate %d Hz\n", sample_rate);
 	switch (sample_rate) {
 		case 32000:
 			return sgtl5000_modify_reg(SGTL5000_CHIP_CLK_CTRL, SGTL5000_SYS_FS_MASK | SGTL5000_MCLK_FREQ_MASK,
@@ -700,6 +703,7 @@ int32_t sgtl5000_get_hp_out_volume(int16_t* value)
 int32_t sgtl5000_init()
 {
 	int32_t ret_val = 0;
+	current_sample_rate = 0;
 	
 	ret_val = sgtl5000_power_up();
 	if (ret_val != 0)
@@ -707,10 +711,10 @@ int32_t sgtl5000_init()
 	// wait some time
 	systick_wait_for_ms(10);
 	// Configure the sample frequency
-	ret_val = output_i2s_ConfigurePLL(48000);
+	ret_val = output_i2s_ConfigurePLL(44100);
 	if (ret_val != 0)
 		return ret_val;
-	ret_val = sgtl5000_config_clocks(48000);
+	ret_val = sgtl5000_config_clocks(44100);
 	if (ret_val != 0)
 		return ret_val;
 	// Configure the internal audio routing

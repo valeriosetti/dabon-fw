@@ -112,6 +112,18 @@ void file_browser_start()
 }
 
 /*
+ * Return to this UI once the playback is completed
+ */
+void file_browser_resume()
+{
+	buttons_register_key_event_callback(&file_browser_key_event);
+	kernel_activate_task_immediately(&file_browser_task);
+	
+	file_browser_update_shown_files();
+	received_key = KEY_NONE;
+}
+
+/*
  * Main task
  */
 int32_t file_browser_task_func()
