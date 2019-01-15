@@ -338,6 +338,7 @@ PARTITION_INFO* eeprom_get_partition_infos(char* partition_name)
 		if (strcmp(tmp_partition->name, partition_name) == 0) {
 			return tmp_partition;
 		}
+		tmp_partition++;
 	}
 	return NULL;
 }
@@ -395,37 +396,39 @@ int eeprom_program_firmware(int argc, char *argv[])
     uint32_t final_page;
 
     if (strcmp(argv[0],"boot") == 0) {
-    	final_page = eeprom_copy_firmware(&_binary___external_firmwares_rom00_patch_016_bin_start, sizeof_binary_image(rom00_patch_016_bin), start_page);
+    	final_page = eeprom_copy_firmware(utils_get_embedded_FW_start_address(SI468X_BOOT_FW), utils_get_embedded_FW_size(SI468X_BOOT_FW), start_page);
     	strcpy(eeprom_partitions_table.bootloader.name, "bootloader");
     	eeprom_partitions_table.bootloader.start_page = start_page;
-    	eeprom_partitions_table.bootloader.data_size = sizeof_binary_image(rom00_patch_016_bin);
+    	eeprom_partitions_table.bootloader.data_size = utils_get_embedded_FW_size(SI468X_BOOT_FW);
     	eeprom_partitions_table.bootloader.final_page = final_page;
     	eeprom_update_partition_table();
     } else if (strcmp(argv[0],"fm") == 0) {
-        if (sizeof_binary_image(fmhd_radio_5_0_4_bin) < 2*sizeof(uint8_t)) {
+        if (utils_get_embedded_FW_size(SI468X_FM_FW) < 2*sizeof(uint8_t)) {
             debug_msg("Error: the STM32 image does not include the FM firmware\n");
             return -1;
         }
-        final_page = eeprom_copy_firmware(&_binary___external_firmwares_fmhd_radio_5_0_4_bin_start, sizeof_binary_image(fmhd_radio_5_0_4_bin), start_page);
+        final_page = eeprom_copy_firmware(utils_get_embedded_FW_start_address(SI468X_FM_FW), utils_get_embedded_FW_size(SI468X_FM_FW), start_page);
     	strcpy(eeprom_partitions_table.fm_radio.name, "fm_radio");
     	eeprom_partitions_table.fm_radio.start_page = start_page;
-    	eeprom_partitions_table.fm_radio.data_size = sizeof_binary_image(fmhd_radio_5_0_4_bin);
+    	eeprom_partitions_table.fm_radio.data_size = utils_get_embedded_FW_size(SI468X_FM_FW);
     	eeprom_partitions_table.fm_radio.final_page = final_page;
     	eeprom_update_partition_table();
     } else if (strcmp(argv[0],"dab") == 0) {
-        if (sizeof_binary_image(dab_radio_5_0_5_bin) < 2*sizeof(uint8_t)) {
+        if (utils_get_embedded_FW_size(SI468X_DAB_FW) < 2*sizeof(uint8_t)) {
             debug_msg("Error: the STM32 image does not include the DAB firmware\n");
             return -1;
         }
-        final_page = eeprom_copy_firmware(&_binary___external_firmwares_dab_radio_5_0_5_bin_start, sizeof_binary_image(dab_radio_5_0_5_bin), start_page);
+        final_page = eeprom_copy_firmware(utils_get_embedded_FW_start_address(SI468X_DAB_FW), utils_get_embedded_FW_size(SI468X_DAB_FW), start_page);
 		strcpy(eeprom_partitions_table.dab_radio.name, "dab_radio");
 		eeprom_partitions_table.dab_radio.start_page = start_page;
-		eeprom_partitions_table.dab_radio.data_size = sizeof_binary_image(dab_radio_5_0_5_bin);
+		eeprom_partitions_table.dab_radio.data_size = utils_get_embedded_FW_size(SI468X_DAB_FW);
 		eeprom_partitions_table.dab_radio.final_page = final_page;
+    	eeprom_update_partition_table();
     } else {
         debug_msg("unknown firmware\n");
         return -1;
     }
     
+    debug_msg("eeprom updated\n");
     return 0;
 }

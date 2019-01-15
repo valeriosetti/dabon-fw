@@ -29,7 +29,6 @@ typedef struct {
 
 SINGLE_SHELL_CMD shell_cmd_list[] = {
     {"list_cmds", shell_list_commands},
-    {"fm_tune", fm_tune},
     {"systick_gettime", systick_gettime},
     {"reset", reset},
     {"set_hp_out_volume", set_hp_out_volume},
@@ -37,6 +36,15 @@ SINGLE_SHELL_CMD shell_cmd_list[] = {
     {"buttons_scan", buttons_scan},
     {"program_firmware", eeprom_program_firmware},
     {"show_partition_table", eeprom_show_partition_table},
+    {"start_tuner", start_tuner},
+    {"fm_tune", fm_tune},
+    {"dab_tune_frequency", dab_tune_frequency},
+    {"dab_digrad_status", dab_digrad_status},
+    {"dab_get_event_status", dab_get_event_status},
+    {"dab_get_ensamble_info", dab_get_ensamble_info},
+    {"dab_get_digital_service_list", dab_get_digital_service_list},
+    {"dab_start_digital_service", dab_start_digital_service},
+    {"dab_get_audio_info", dab_get_audio_info},
 	{}// do not remove this empty cell!!
 };
 
@@ -81,12 +89,16 @@ static int shell_process_cmd_line(void)
 	};
 	cmd_buff_pos = 0;
 	
-	// Search the selected function and call it with the specified parameters    
+	if (funct == NULL)
+		return -3;
+	
+	// Search the selected function and call it with the specified parameters
     SINGLE_SHELL_CMD* curr_cmd = shell_cmd_list;
     while (curr_cmd->cmd_name != NULL) {
         if(strcmp(curr_cmd->cmd_name, funct) == 0) {
             // If a matching was found, then call the function
             curr_cmd->function(argc, args);
+            memset(command_buffer, 0, sizeof(command_buffer));
             return 0;
         }
         curr_cmd++; // move to the next command

@@ -3,29 +3,6 @@
 
 #include "stdint.h"
 
-#if defined(DAB_RADIO)
-	extern uint8_t _binary___external_firmwares_rom00_patch_016_bin_start;
-	extern uint8_t _binary___external_firmwares_rom00_patch_016_bin_end;
-	extern uint8_t _binary___external_firmwares_dab_radio_5_0_5_bin_start;
-	extern uint8_t _binary___external_firmwares_dab_radio_5_0_5_bin_end;
-	uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_start;
-	uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_end;
-#elif defined(FM_RADIO)
-	extern uint8_t _binary___external_firmwares_rom00_patch_016_bin_start;
-	extern uint8_t _binary___external_firmwares_rom00_patch_016_bin_end;
-	uint8_t _binary___external_firmwares_dab_radio_5_0_5_bin_start;
-	uint8_t _binary___external_firmwares_dab_radio_5_0_5_bin_end;
-	extern uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_start;
-	extern uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_end;
-#elif defined(NO_EXT_FIRMWARES)
-	uint8_t _binary___external_firmwares_rom00_patch_016_bin_start;
-	uint8_t _binary___external_firmwares_rom00_patch_016_bin_end;
-	uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_start;
-	uint8_t _binary___external_firmwares_fmhd_radio_5_0_4_bin_end;
-	uint8_t _binary___external_firmwares_dab_radio_5_0_5_bin_start;
-	uint8_t _binary___external_firmwares_dab_radio_5_0_5_bin_end;
-#endif
-
 #define EEPROM_PAGE_SIZE_IN_BYTES      256
 #define MAX_PARTITION_NAME_LENGTH		16
 
